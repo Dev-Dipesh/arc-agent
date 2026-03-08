@@ -23,6 +23,10 @@ from tool_registry import (
 CHECKPOINT_DB_PATH = os.getenv("CHECKPOINT_DB_PATH", "langgraph.db")
 PREFERENCES_DB_PATH = os.getenv("PREFERENCES_DB_PATH", ".arc_agent_prefs.sqlite")
 DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "mini_window")
+USE_CUSTOM_CHECKPOINTER = (
+    os.getenv("USE_CUSTOM_CHECKPOINTER", "false").strip().lower()
+    in {"1", "true", "yes"}
+)
 
 SYSTEM_PROMPT = """
 You are Arc Agent, an assistant that controls Arc browser on macOS.
@@ -149,10 +153,12 @@ TOOLS = build_langgraph_tools(exclude={"arc_open_url"}) + [
 ]
 
 
-_checkpoint_path = str(Path(CHECKPOINT_DB_PATH))
-_checkpointer_cm = SqliteSaver.from_conn_string(_checkpoint_path)
-checkpointer = _checkpointer_cm.__enter__()
-atexit.register(lambda: _checkpointer_cm.__exit__(None, None, None))
+checkpointer = None
+if USE_CUSTOM_CHECKPOINTER:
+    _checkpoint_path = str(Path(CHECKPOINT_DB_PATH))
+    _checkpointer_cm = SqliteSaver.from_conn_string(_checkpoint_path)
+    checkpointer = _checkpointer_cm.__enter__()
+    atexit.register(lambda: _checkpointer_cm.__exit__(None, None, None))
 
 model_name = os.getenv("LLM_MODEL", "gpt-5o-mini")
 model = ChatOpenAI(model=model_name, temperature=0)
