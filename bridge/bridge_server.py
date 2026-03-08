@@ -116,9 +116,13 @@ def main() -> None:
     port = int(os.getenv("ARC_BRIDGE_PORT", "8765"))
     server = ThreadingHTTPServer((host, port), BridgeHandler)
     print(f"Arc bridge listening on http://{host}:{port}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
     main()
-

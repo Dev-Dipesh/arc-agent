@@ -53,3 +53,8 @@ Set `NEXT_PUBLIC_API_URL=http://localhost:2024` and `NEXT_PUBLIC_ASSISTANT_ID=ag
 ## Environment
 
 See `.env.example` for required variables. Copy to `.env` and fill in keys.
+
+## Collaboration Safety
+
+- Do not remove unknown or untracked files unless the user explicitly asks for deletion.
+- If cleanup is needed, list candidate files first and get user confirmation before deleting.

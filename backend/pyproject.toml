@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "arc-agent"
 version = "0.1.0"
@@ -18,3 +22,7 @@ dev = [
     "langgraph-cli[inmem]>=0.4.14",
     "ruff>=0.15.5",
 ]
+
+[tool.setuptools]
+py-modules = ["agent", "bridge_client", "mcp_server", "tool_registry", "tracing"]
+packages = ["tools"]
