@@ -10,11 +10,11 @@ fi
 
 export ARC_BRIDGE_HOST="${ARC_BRIDGE_HOST:-127.0.0.1}"
 export ARC_BRIDGE_PORT="${ARC_BRIDGE_PORT:-8765}"
-
-if [[ -z "${ARC_BRIDGE_API_KEY:-}" ]]; then
-  echo "ARC_BRIDGE_API_KEY is required in .env"
-  exit 1
-fi
+export ARC_MCP_HOST="${ARC_MCP_HOST:-${ARC_BRIDGE_HOST}}"
+export ARC_MCP_PORT="${ARC_MCP_PORT:-${ARC_BRIDGE_PORT}}"
+export ARC_MCP_TRANSPORT="${ARC_MCP_TRANSPORT:-sse}"
+export FASTMCP_HOST="${ARC_MCP_HOST}"
+export FASTMCP_PORT="${ARC_MCP_PORT}"
 
 cd "${ROOT_DIR}"
-PYTHONPATH="${ROOT_DIR}" uv --directory backend run python "${ROOT_DIR}/bridge/bridge_server.py"
+PYTHONPATH="${ROOT_DIR}" uv --directory backend run python "${ROOT_DIR}/backend/mcp_server.py"

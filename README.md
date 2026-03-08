@@ -4,7 +4,7 @@ Natural-language Arc browser control on macOS using:
 
 - Python backend (LangGraph + LangChain)
 - Next.js chat frontend
-- Host-local bridge for AppleScript tool execution
+- Host-local MCP server for AppleScript tool execution
 
 ## What This Project Does
 
@@ -15,12 +15,12 @@ Arc Agent lets you chat with an agent that can:
 - read page content
 - query Arc history
 
-The backend runs in LangGraph; browser automation runs on the host Mac through a bridge server, since AppleScript cannot execute Arc inside containers.
+The backend runs in LangGraph; browser automation runs on the host Mac through an MCP server, since AppleScript cannot execute Arc inside containers.
 
 ## Architecture
 
 - `backend/`: LangGraph agent, tools, tracing, tool registry
-- `bridge/`: host HTTP bridge that executes Arc tools locally
+- `backend/mcp_server.py`: host MCP server that executes Arc tools locally
 - `frontend/`: chat UI (Next.js)
 - `docker/compose.yml`: frontend + postgres addon services
 
@@ -34,14 +34,14 @@ make stack-up
 
 Starts:
 
-- bridge (host process)
+- host MCP server (SSE transport)
 - LangGraph backend (`langgraph up`)
 - frontend container
 - postgres container
 
 ### Bring everything down
 
-1. Press `Ctrl+C` in the terminal running `make stack-up` (stops bridge + backend process).
+1. Press `Ctrl+C` in the terminal running `make stack-up` (stops host MCP server + backend process).
 2. Run:
 
 ```bash
@@ -80,7 +80,7 @@ cp .env.example .env
 Minimum keys to run:
 
 - `OPENAI_API_KEY`
-- `ARC_BRIDGE_API_KEY`
+- `ARC_MCP_SSE_URL_DOCKER` (defaults are provided in `.env.example`)
 - `POSTGRES_URI_DOCKER` (or `POSTGRES_URI`)
 - frontend vars (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`) are prefilled with defaults
 

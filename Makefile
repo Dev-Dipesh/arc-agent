@@ -17,11 +17,11 @@ help:
 	@printf "%b\n" "$(BLUE)╚════════════════════════════════════════════════════════════════╝$(NC)"
 	@printf "\n"
 	@printf "%b\n" "$(GREEN)Runtime$(NC)"
-	@printf "%b\n" "  $(YELLOW)make stack-up$(NC)      - Start full stack: bridge + backend + frontend + Postgres"
-	@printf "%b\n" "  $(YELLOW)make stack-dev$(NC)     - Start bridge + frontend + Postgres + langgraph dev (no langgraph-up license checks)"
+	@printf "%b\n" "  $(YELLOW)make stack-up$(NC)      - Start full stack: host MCP + backend + frontend + Postgres"
+	@printf "%b\n" "  $(YELLOW)make stack-dev$(NC)     - Start host MCP + frontend + Postgres + langgraph dev (no langgraph-up license checks)"
 	@printf "%b\n" "  $(YELLOW)make backend-up$(NC)    - Start langgraph up with compose addon + Postgres"
 	@printf "%b\n" "  $(YELLOW)make backend-dev$(NC)   - Start langgraph dev (non-persistent checkpoints)"
-	@printf "%b\n" "  $(YELLOW)make bridge$(NC)        - Start host Arc bridge only (foreground)"
+	@printf "%b\n" "  $(YELLOW)make bridge$(NC)        - Start host Arc MCP server only (foreground)"
 	@printf "\n"
 	@printf "%b\n" "$(GREEN)Docker Compose$(NC)"
 	@printf "%b\n" "  $(YELLOW)make compose-up$(NC)    - Start frontend + Postgres"
@@ -32,10 +32,10 @@ help:
 	@printf "%b\n" "  $(YELLOW)make lint$(NC)          - Run backend ruff checks"
 	@printf "\n"
 	@printf "%b\n" "$(CYAN)Shutdown$(NC)"
-	@printf "%b\n" "  1) Press Ctrl+C in the terminal running make stack-up (stops bridge + backend)"
+	@printf "%b\n" "  1) Press Ctrl+C in the terminal running make stack-up (stops host MCP + backend)"
 	@printf "%b\n" "  2) Run make compose-down (stops frontend + Postgres containers)"
 	@printf "\n"
-	@printf "%b\n" "$(RED)Note:$(NC) Arc automation requires the bridge to run on host macOS."
+	@printf "%b\n" "$(RED)Note:$(NC) Arc automation requires the MCP server to run on host macOS."
 
 bridge:
 	./scripts/start_bridge.sh
@@ -66,7 +66,7 @@ backend-up:
 		echo "Postgres URI still points to localhost. Set POSTGRES_URI_DOCKER to use host 'postgres'."; \
 		exit 1; \
 	fi; \
-	cd backend && ARC_BRIDGE_URL="$${ARC_BRIDGE_URL_DOCKER:-http://host.docker.internal:8765}" \
+	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
 		--config langgraph.json \
@@ -76,7 +76,7 @@ backend-up:
 
 stack-up:
 	@set -a; [ -f .env ] && source .env; set +a; \
-	BRIDGE_PORT="$${ARC_BRIDGE_PORT:-8765}"; \
+	BRIDGE_PORT="$${ARC_MCP_PORT:-$${ARC_BRIDGE_PORT:-8765}}"; \
 	BRIDGE_STARTED=0; \
 	if lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then \
 		echo "Bridge port $$BRIDGE_PORT already in use; reusing existing bridge process."; \
@@ -98,7 +98,7 @@ stack-up:
 		echo "Postgres URI still points to localhost. Set POSTGRES_URI_DOCKER to use host 'postgres'."; \
 		exit 1; \
 	fi; \
-	cd backend && ARC_BRIDGE_URL="$${ARC_BRIDGE_URL_DOCKER:-http://host.docker.internal:8765}" \
+	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
 		--config langgraph.json \
@@ -108,7 +108,7 @@ stack-up:
 
 stack-dev:
 	@set -a; [ -f .env ] && source .env; set +a; \
-	BRIDGE_PORT="$${ARC_BRIDGE_PORT:-8765}"; \
+	BRIDGE_PORT="$${ARC_MCP_PORT:-$${ARC_BRIDGE_PORT:-8765}}"; \
 	BRIDGE_STARTED=0; \
 	if lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then \
 		echo "Bridge port $$BRIDGE_PORT already in use; reusing existing bridge process."; \

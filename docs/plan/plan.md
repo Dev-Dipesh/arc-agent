@@ -275,8 +275,6 @@ arc-agent/
 │       ├── __init__.py
 │       ├── arc.py          ← Phase 1
 │       └── history.py      ← Phase 1
-├── bridge/
-│   └── bridge_server.py    ← host-local Arc tool bridge (AppleScript executor)
 ├── docker/
 │   └── compose.yml         ← Postgres + frontend addons for `langgraph up`
 └── frontend/               ← Phase 4 web chat UI
@@ -294,7 +292,7 @@ uv run python backend/mcp_server.py
 make stack-up
 
 # Optional dev-only mode (non-persistent checkpoints)
-make bridge        # Terminal 1
+make bridge        # Terminal 1 (runs MCP server on host)
 make compose-up    # Terminal 2 (frontend + postgres)
 make backend-dev   # Terminal 3
 ```
