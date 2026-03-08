@@ -117,6 +117,7 @@ export function Thread() {
   const isLoading = stream.isLoading;
 
   const lastError = useRef<string | undefined>(undefined);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!stream.error) {
@@ -188,6 +189,7 @@ export function Thread() {
     );
 
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   const handleRegenerate = (
@@ -412,7 +414,14 @@ export function Thread() {
                   >
                     <textarea
                       value={input}
-                      onChange={(e) => setInput(e.target.value)}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        const el = textareaRef.current;
+                        if (el) {
+                          el.style.height = "auto";
+                          el.style.height = `${el.scrollHeight}px`;
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (
                           e.key === "Enter" &&
@@ -426,8 +435,10 @@ export function Thread() {
                           form?.requestSubmit();
                         }
                       }}
+                      ref={textareaRef}
                       placeholder="Type your message..."
-                      className="p-3.5 pb-0 border-none bg-transparent field-sizing-content shadow-none ring-0 outline-none focus:outline-none focus:ring-0 resize-none"
+                      rows={1}
+                      className="p-3.5 pb-0 border-none bg-transparent shadow-none ring-0 outline-none focus:outline-none focus:ring-0 resize-none overflow-y-auto max-h-48"
                     />
 
                     <div className="flex items-center justify-between p-2 pt-4">
