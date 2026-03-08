@@ -56,37 +56,37 @@ All functions return plain dicts. Errors returned as `{"error": "..."}`.
 
 **Spaces**
 
-| Function | AppleScript | Returns |
-|----------|-------------|---------|
-| `list_spaces()` | `every space` on window | `[{id, title}]` |
-| `focus_space(space_id)` | `focus` on space | confirmation |
+| Function                | AppleScript             | Returns         |
+| ----------------------- | ----------------------- | --------------- |
+| `list_spaces()`         | `every space` on window | `[{id, title}]` |
+| `focus_space(space_id)` | `focus` on space        | confirmation    |
 
 **Tabs — Query**
 
-| Function | AppleScript | Returns |
-|----------|-------------|---------|
-| `list_tabs(space_id?)` | `every tab` on space(s) | `[{id, title, url, location, loading, space}]` |
-| `find_tabs(query)` | iterate + filter | matching tabs with space context |
-| `find_duplicates()` | compare URLs across spaces | groups of duplicate tabs |
+| Function               | AppleScript                | Returns                                        |
+| ---------------------- | -------------------------- | ---------------------------------------------- |
+| `list_tabs(space_id?)` | `every tab` on space(s)    | `[{id, title, url, location, loading, space}]` |
+| `find_tabs(query)`     | iterate + filter           | matching tabs with space context               |
+| `find_duplicates()`    | compare URLs across spaces | groups of duplicate tabs                       |
 
 **Tabs — Actions**
 
-| Function | AppleScript | Notes |
-|----------|-------------|-------|
-| `open_url(url, space_id?)` | `make new tab in space` | targets specific space if given |
-| `close_tab(tab_id)` | `close tab id X` | HITL confirm before calling |
-| `switch_to_tab(tab_id)` | `select` on tab | — |
-| `reload_tab(tab_id)` | `reload` on tab | — |
-| `stop_tab(tab_id)` | `stop` on tab | — |
-| `navigate_tab(tab_id, url)` | set `URL` on tab | navigate existing tab |
-| `go_back(tab_id)` | `go back` on tab | — |
-| `go_forward(tab_id)` | `go forward` on tab | — |
-| `set_tab_location(tab_id, location)` | set `location` property | `topApp`, `pinned`, `unpinned` |
+| Function                             | AppleScript             | Notes                           |
+| ------------------------------------ | ----------------------- | ------------------------------- |
+| `open_url(url, space_id?)`           | `make new tab in space` | targets specific space if given |
+| `close_tab(tab_id)`                  | `close tab id X`        | HITL confirm before calling     |
+| `switch_to_tab(tab_id)`              | `select` on tab         | —                               |
+| `reload_tab(tab_id)`                 | `reload` on tab         | —                               |
+| `stop_tab(tab_id)`                   | `stop` on tab           | —                               |
+| `navigate_tab(tab_id, url)`          | set `URL` on tab        | navigate existing tab           |
+| `go_back(tab_id)`                    | `go back` on tab        | —                               |
+| `go_forward(tab_id)`                 | `go forward` on tab     | —                               |
+| `set_tab_location(tab_id, location)` | set `location` property | `topApp`, `pinned`, `unpinned`  |
 
 **JavaScript**
 
-| Function | Notes |
-|----------|-------|
+| Function                    | Notes                                                           |
+| --------------------------- | --------------------------------------------------------------- |
 | `read_page_content(tab_id)` | `execute javascript` — extracts readable text for summarisation |
 
 **History**
@@ -94,12 +94,13 @@ All functions return plain dicts. Errors returned as `{"error": "..."}`.
 Arc's history: `~/Library/Application Support/Arc/User Data/Default/History` (Chromium SQLite).
 Copy before reading to avoid WAL lock.
 
-| Function | Returns |
-|----------|---------|
+| Function                        | Returns                      |
+| ------------------------------- | ---------------------------- |
 | `search_history(query, limit?)` | `[{title, url, last_visit}]` |
-| `find_closed_tab(query)` | matching past URLs to reopen |
+| `find_closed_tab(query)`        | matching past URLs to reopen |
 
 **Not supported**
+
 - Moving tabs between spaces (workaround: `open_url` in target space + `close_tab` original)
 - Tab groups/folders within a space
 - Creating or deleting spaces
@@ -125,6 +126,7 @@ def list_spaces_tool() -> list[dict]:
 ```
 
 **Transports**
+
 - `stdio` — for Claude Code and local MCP clients
 - `sse` — for hosting on mcp.so or remote agents
 
@@ -152,13 +154,14 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 `backend/agent.py` — imports tool functions directly (not via MCP).
 
 - ReAct agent via `create_react_agent`
-- LLM: `gpt-4o`
+- LLM: `gpt-5o-mini`
 - Tools: LangChain `@tool` wrappers around Phase 1 functions
-- HITL: `interrupt()` before `close_tab` or any bulk destructive action
+- HITL: `interrupt()` before `close_tab` or any bulk destructive action. Use langchain node-style middleware instead of custome building it
 - Memory: SQLite checkpointer for persistent conversation across sessions
 - System prompt covers Arc's data model, confirmation behaviour, response formatting
 
 `backend/langgraph.json`
+
 ```json
 {
   "dependencies": ["."],
@@ -177,6 +180,7 @@ npx create-agent-chat-app frontend
 ```
 
 `frontend/.env`
+
 ```
 NEXT_PUBLIC_API_URL=http://localhost:2024
 NEXT_PUBLIC_ASSISTANT_ID=agent
@@ -192,6 +196,31 @@ No code changes needed. Open in Safari/Firefox (not Arc).
 - Fuzzy match on space/tab names
 - Handle Arc not running, AppleScript permission errors
 - SSE transport for MCP server → publish to mcp.so
+
+**Packaging (required before mcp.so)**
+
+Currently the MCP server runs as a plain script via `uv --directory backend run python mcp_server.py`. To publish to mcp.so or allow `uvx` installs, the backend needs to be a proper Python package:
+
+1. Add a build backend to `pyproject.toml`:
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+arc-mcp = "mcp_server:main"
+```
+
+2. Add `tool.uv.package = true` so uv installs entry points
+3. Then `.mcp.json` can use `uvx` like any other published MCP server:
+
+```json
+{ "command": "uvx", "args": ["arc-mcp"] }
+```
+
+4. Publish to PyPI: `uv publish`
+5. Register on mcp.so
 
 ---
 

@@ -40,8 +40,11 @@ def search_history(query: str, limit: int = 20) -> list[dict]:
     Search Arc browser history by title or URL.
     Returns up to `limit` results sorted by most recent visit.
     """
+    conn: sqlite3.Connection | None = None
+    temp_path: str | None = None
     try:
         conn = _copy_and_connect()
+        temp_path = conn.execute("PRAGMA database_list").fetchone()[2]
         cursor = conn.execute(
             """
             SELECT u.url, u.title, u.visit_count, MAX(v.visit_time) as last_visit
@@ -55,7 +58,6 @@ def search_history(query: str, limit: int = 20) -> list[dict]:
             (f"%{query}%", f"%{query}%", limit),
         )
         rows = cursor.fetchall()
-        conn.close()
         return [
             {
                 "url": row[0],
@@ -69,6 +71,14 @@ def search_history(query: str, limit: int = 20) -> list[dict]:
         return [{"error": str(e)}]
     except Exception as e:
         return [{"error": f"History query failed: {e}"}]
+    finally:
+        if conn is not None:
+            conn.close()
+        if temp_path:
+            try:
+                Path(temp_path).unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 def find_closed_tab(query: str, limit: int = 10) -> list[dict]:

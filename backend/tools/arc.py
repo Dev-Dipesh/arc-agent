@@ -1,7 +1,12 @@
 """Arc browser tools via AppleScript (osascript)."""
 
+import json
 import subprocess
 from typing import Optional
+
+
+_FIELD_SEP = "\x1f"  # ASCII Unit Separator
+_RECORD_SEP = "\x1e"  # ASCII Record Separator
 
 
 def _run(script: str) -> str:
@@ -21,6 +26,16 @@ def _run_multi(lines: list[str]) -> str:
     return _run("\n".join(lines))
 
 
+def _as_apple_string(value: str) -> str:
+    """Safely embed a Python string inside an AppleScript string literal."""
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+    )
+
+
 # ---------------------------------------------------------------------------
 # Spaces
 # ---------------------------------------------------------------------------
@@ -29,9 +44,11 @@ def list_spaces() -> list[dict]:
     """List all Arc spaces with their IDs and titles."""
     script = """
 tell application "Arc"
-    set out to {}
+    set fieldSep to ASCII character 31
+    set recordSep to ASCII character 30
+    set out to ""
     repeat with s in spaces of window 1
-        set end of out to (id of s) & "|||" & (title of s)
+        set out to out & (id of s as text) & fieldSep & (title of s as text) & recordSep
     end repeat
     return out
 end tell
@@ -41,8 +58,10 @@ end tell
         if not raw:
             return []
         spaces = []
-        for item in raw.split(", "):
-            parts = item.split("|||")
+        for item in raw.split(_RECORD_SEP):
+            if not item:
+                continue
+            parts = item.split(_FIELD_SEP)
             if len(parts) == 2:
                 spaces.append({"id": parts[0].strip(), "title": parts[1].strip()})
         return spaces
@@ -52,10 +71,11 @@ end tell
 
 def focus_space(space_id: str) -> dict:
     """Switch to a space by ID."""
+    safe_space_id = _as_apple_string(space_id)
     script = f"""
 tell application "Arc"
-    set target to first space of window 1 whose id is "{space_id}"
-    focus target
+    set targetSpace to first space of window 1 whose id is "{safe_space_id}"
+    focus targetSpace
 end tell
 """
     try:
@@ -76,36 +96,28 @@ def list_tabs(space_id: Optional[str] = None) -> list[dict]:
     """
     script = """
 tell application "Arc"
-    set out to {}
+    set fieldSep to ASCII character 31
+    set recordSep to ASCII character 30
+    set out to ""
     repeat with s in spaces of window 1
-        set sId to id of s
-        set sTitle to title of s
+        set sId to id of s as text
+        set sTitle to title of s as text
         repeat with t in tabs of s
-            set end of out to sId & "|||" & sTitle & "|||" & (id of t) & "|||" & (title of t) & "|||" & (URL of t) & "|||" & (location of t)
+            set out to out & sId & fieldSep & sTitle & fieldSep & (id of t as text) & fieldSep & (title of t as text) & fieldSep & (URL of t as text) & fieldSep & (location of t as text) & recordSep
         end repeat
     end repeat
     return out
 end tell
 """
-    space_script = f"""
-tell application "Arc"
-    set s to first space of window 1 whose id is "{space_id}"
-    set sId to id of s
-    set sTitle to title of s
-    set out to {{}}
-    repeat with t in tabs of s
-        set end of out to sId & "|||" & sTitle & "|||" & (id of t) & "|||" & (title of t) & "|||" & (URL of t) & "|||" & (location of t)
-    end repeat
-    return out
-end tell
-"""
     try:
-        raw = _run(space_script if space_id else script)
+        raw = _run(script)
         if not raw:
             return []
         tabs = []
-        for item in raw.split(", "):
-            parts = item.split("|||")
+        for item in raw.split(_RECORD_SEP):
+            if not item:
+                continue
+            parts = item.split(_FIELD_SEP)
             if len(parts) == 6:
                 tabs.append({
                     "space_id": parts[0].strip(),
@@ -115,7 +127,9 @@ end tell
                     "url": parts[4].strip(),
                     "location": parts[5].strip(),
                 })
-        return tabs
+        if not space_id:
+            return tabs
+        return [tab for tab in tabs if tab["space_id"] == space_id]
     except RuntimeError as e:
         return [{"error": str(e)}]
 
@@ -133,7 +147,7 @@ def find_duplicates() -> list[list[dict]]:
     """Find tabs with duplicate URLs across all spaces. Returns groups of duplicates."""
     all_tabs = list_tabs()
     if all_tabs and "error" in all_tabs[0]:
-        return []
+        return [all_tabs]
     seen: dict[str, list[dict]] = {}
     for tab in all_tabs:
         url = tab.get("url", "").rstrip("/")
@@ -150,20 +164,20 @@ def open_url(url: str, space_id: Optional[str] = None) -> dict:
     Open a URL in Arc. If space_id is given, opens in that space.
     Otherwise opens in the currently active space.
     """
+    safe_url = _as_apple_string(url)
     if space_id:
+        safe_space_id = _as_apple_string(space_id)
         script = f"""
 tell application "Arc"
-    set target to first space of window 1 whose id is "{space_id}"
-    tell target
-        make new tab with properties {{URL:"{url}"}}
-    end tell
+    set targetSpace to first space of window 1 whose id is "{safe_space_id}"
+    make new tab in targetSpace with properties {{URL:"{safe_url}"}}
 end tell
 """
     else:
         script = f"""
 tell application "Arc"
     tell window 1
-        make new tab with properties {{URL:"{url}"}}
+        make new tab with properties {{URL:"{safe_url}"}}
     end tell
 end tell
 """
@@ -176,11 +190,12 @@ end tell
 
 def close_tab(tab_id: str) -> dict:
     """Close a tab by ID."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 close t
                 return "closed"
             end if
@@ -200,11 +215,12 @@ end tell
 
 def switch_to_tab(tab_id: str) -> dict:
     """Focus a tab by ID."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 select t
                 return "selected"
             end if
@@ -224,11 +240,12 @@ end tell
 
 def reload_tab(tab_id: str) -> dict:
     """Reload a tab by ID."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 reload t
                 return "reloaded"
             end if
@@ -248,11 +265,12 @@ end tell
 
 def stop_tab(tab_id: str) -> dict:
     """Stop a loading tab by ID."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 stop t
                 return "stopped"
             end if
@@ -272,12 +290,14 @@ end tell
 
 def navigate_tab(tab_id: str, url: str) -> dict:
     """Navigate an existing tab to a new URL."""
+    safe_tab_id = _as_apple_string(tab_id)
+    safe_url = _as_apple_string(url)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
-                set URL of t to "{url}"
+            if (id of t as text) is "{safe_tab_id}" then
+                set URL of t to "{safe_url}"
                 return "navigated"
             end if
         end repeat
@@ -296,11 +316,12 @@ end tell
 
 def go_back(tab_id: str) -> dict:
     """Navigate back in a tab's history."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 go back t
                 return "ok"
             end if
@@ -320,11 +341,12 @@ end tell
 
 def go_forward(tab_id: str) -> dict:
     """Navigate forward in a tab's history."""
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 go forward t
                 return "ok"
             end if
@@ -349,11 +371,12 @@ def set_tab_location(tab_id: str, location: str) -> dict:
     """
     if location not in ("topApp", "pinned", "unpinned"):
         return {"error": f"Invalid location '{location}'. Must be topApp, pinned, or unpinned."}
+    safe_tab_id = _as_apple_string(tab_id)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
+            if (id of t as text) is "{safe_tab_id}" then
                 set location of t to "{location}"
                 return "ok"
             end if
@@ -388,12 +411,14 @@ def read_page_content(tab_id: str) -> dict:
         "return JSON.stringify({title:title,content:trimmed});"
         "})()"
     )
+    safe_tab_id = _as_apple_string(tab_id)
+    safe_js = _as_apple_string(js)
     script = f"""
 tell application "Arc"
     repeat with s in spaces of window 1
         repeat with t in tabs of s
-            if id of t is "{tab_id}" then
-                return execute t javascript "{js}"
+            if (id of t as text) is "{safe_tab_id}" then
+                return execute t javascript "{safe_js}"
             end if
         end repeat
     end repeat
@@ -404,7 +429,6 @@ end tell
         result = _run(script)
         if result == "not_found":
             return {"error": f"Tab {tab_id} not found"}
-        import json
         return json.loads(result)
     except RuntimeError as e:
         return {"error": str(e)}
