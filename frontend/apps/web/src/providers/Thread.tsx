@@ -15,6 +15,7 @@ import { createClient } from "./client";
 
 interface ThreadContextType {
   getThreads: () => Promise<Thread[]>;
+  deleteThread: (threadId: string) => Promise<void>;
   threads: Thread[];
   setThreads: Dispatch<SetStateAction<Thread[]>>;
   threadsLoading: boolean;
@@ -58,8 +59,18 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     return threads;
   }, [finalApiUrl, finalAssistantId]);
 
+  const deleteThread = useCallback(
+    async (threadId: string): Promise<void> => {
+      if (!finalApiUrl) return;
+      const client = createClient(finalApiUrl, getApiKey() ?? undefined);
+      await client.threads.delete(threadId);
+    },
+    [finalApiUrl],
+  );
+
   const value = {
     getThreads,
+    deleteThread,
     threads,
     setThreads,
     threadsLoading,

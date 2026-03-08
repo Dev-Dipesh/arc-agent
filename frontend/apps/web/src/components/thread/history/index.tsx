@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useThreads } from "@/providers/Thread";
 import { Thread } from "@langchain/langgraph-sdk";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { getContentString } from "../utils";
 import { useQueryState, parseAsBoolean } from "nuqs";
@@ -12,8 +12,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PanelRightOpen, PanelRightClose } from "lucide-react";
+import { PanelRightOpen, PanelRightClose, Trash2 } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { toast } from "sonner";
 
 function ThreadList({
   threads,
@@ -23,9 +24,31 @@ function ThreadList({
   onThreadClick?: (threadId: string) => void;
 }) {
   const [threadId, setThreadId] = useQueryState("threadId");
+  const { deleteThread, setThreads } = useThreads();
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (confirmingId !== id) {
+      setConfirmingId(id);
+      return;
+    }
+    try {
+      await deleteThread(id);
+      setThreads((prev) => prev.filter((t) => t.thread_id !== id));
+      if (threadId === id) setThreadId(null);
+      setConfirmingId(null);
+    } catch {
+      toast.error("Failed to delete thread.");
+      setConfirmingId(null);
+    }
+  };
 
   return (
-    <div className="h-full flex flex-col w-full gap-2 items-start justify-start overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+    <div
+      className="h-full flex flex-col w-full gap-2 items-start justify-start overflow-y-scroll [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent"
+      onClick={() => setConfirmingId(null)}
+    >
       {threads.map((t) => {
         let itemText = t.thread_id;
         if (
@@ -38,19 +61,30 @@ function ThreadList({
           const firstMessage = t.values.messages[0];
           itemText = getContentString(firstMessage.content);
         }
+        const isConfirming = confirmingId === t.thread_id;
         return (
-          <div key={t.thread_id} className="w-full px-1">
+          <div key={t.thread_id} className="group w-full px-1 flex items-center">
             <Button
               variant="ghost"
-              className="text-left items-start justify-start font-normal w-[280px]"
+              className="text-left items-start justify-start font-normal flex-1 min-w-0"
               onClick={(e) => {
                 e.preventDefault();
+                setConfirmingId(null);
                 onThreadClick?.(t.thread_id);
                 if (t.thread_id === threadId) return;
                 setThreadId(t.thread_id);
               }}
             >
               <p className="truncate text-ellipsis">{itemText}</p>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 ${isConfirming ? "opacity-100 text-destructive hover:text-destructive" : "text-muted-foreground"}`}
+              onClick={(e) => handleDelete(e, t.thread_id)}
+              title={isConfirming ? "Click again to confirm" : "Delete thread"}
+            >
+              <Trash2 className="size-4" />
             </Button>
           </div>
         );
