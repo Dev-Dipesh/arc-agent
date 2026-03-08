@@ -61,8 +61,8 @@ def arc_focus_space(space_id: str) -> dict:
 
 
 def arc_list_tabs(space_id: str = "") -> list[dict]:
-    """List tabs in Arc. Pass a space_id or leave empty for all spaces."""
-    return _call("arc_list_tabs", list_tabs, space_id=space_id or None)
+    """List tabs in Arc. Pass a space_id (from arc_list_spaces) to filter by space, or omit/pass empty string for all spaces."""
+    return _call("arc_list_tabs", list_tabs, space_id=space_id or "")
 
 
 def arc_find_tabs(query: str) -> list[dict]:
@@ -77,7 +77,7 @@ def arc_find_duplicates() -> list[list[dict]]:
 
 def arc_open_url(url: str, space_id: str = "") -> dict:
     """Open URL in Arc (legacy behavior)."""
-    return _call("arc_open_url", open_url, url=url, space_id=space_id or None)
+    return _call("arc_open_url", open_url, url=url, space_id=space_id or "")
 
 
 def arc_open_url_active_window(url: str) -> dict:
