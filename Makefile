@@ -1,10 +1,13 @@
-.PHONY: db-start db-stop backend frontend stack lint
+.PHONY: db-start db-stop bridge backend frontend stack lint
 
 db-start:
 	./scripts/start_db.sh
 
 db-stop:
 	./scripts/stop_db.sh
+
+bridge:
+	./scripts/start_bridge.sh
 
 backend:
 	./scripts/start_backend.sh

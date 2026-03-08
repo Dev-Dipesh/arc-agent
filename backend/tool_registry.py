@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from langchain_core.tools import BaseTool, tool
 
+from bridge_client import BridgeError, call_bridge_tool, is_bridge_enabled
 from tools.arc import (
     close_tab,
     find_duplicates,
@@ -25,94 +26,103 @@ from tools.arc import (
 from tools.history import find_closed_tab, search_history
 
 
+def _call(tool_name: str, local_fn: Callable, /, **kwargs):
+    if is_bridge_enabled():
+        try:
+            return call_bridge_tool(tool_name, **kwargs)
+        except BridgeError as e:
+            return {"error": str(e)}
+    return local_fn(**kwargs)
+
+
 def arc_list_spaces() -> list[dict]:
     """List all Arc spaces with their IDs and titles."""
-    return list_spaces()
+    return _call("list_spaces", list_spaces)
 
 
 def arc_focus_space(space_id: str) -> dict:
     """Switch Arc to a specific space by ID."""
-    return focus_space(space_id)
+    return _call("focus_space", focus_space, space_id=space_id)
 
 
 def arc_list_tabs(space_id: str = "") -> list[dict]:
     """List tabs in Arc. Pass a space_id or leave empty for all spaces."""
-    return list_tabs(space_id or None)
+    return _call("list_tabs", list_tabs, space_id=space_id or None)
 
 
 def arc_find_tabs(query: str) -> list[dict]:
     """Search Arc tabs by title or URL."""
-    return find_tabs(query)
+    return _call("find_tabs", find_tabs, query=query)
 
 
 def arc_find_duplicates() -> list[list[dict]]:
     """Find tabs with duplicate URLs across all spaces."""
-    return find_duplicates()
+    return _call("find_duplicates", find_duplicates)
 
 
 def arc_open_url(url: str, space_id: str = "") -> dict:
     """Open URL in Arc (legacy behavior)."""
-    return open_url(url, space_id or None)
+    return _call("open_url", open_url, url=url, space_id=space_id or None)
 
 
 def arc_open_url_active_window(url: str) -> dict:
     """Open URL directly in active Arc window (no mini-window handoff)."""
-    return open_url_active_window(url)
+    return _call("open_url_active_window", open_url_active_window, url=url)
 
 
 def arc_open_url_mini_window(url: str, space_id: str) -> dict:
     """Open URL via target-space path, which may appear as mini-window first."""
-    return open_url_mini_window(url, space_id)
+    return _call("open_url_mini_window", open_url_mini_window, url=url, space_id=space_id)
 
 
 def arc_close_tab(tab_id: str) -> dict:
     """Close a tab by ID."""
-    return close_tab(tab_id)
+    return _call("close_tab", close_tab, tab_id=tab_id)
 
 
 def arc_switch_to_tab(tab_id: str) -> dict:
     """Focus (select) a tab by ID."""
-    return switch_to_tab(tab_id)
+    return _call("switch_to_tab", switch_to_tab, tab_id=tab_id)
 
 
 def arc_reload_tab(tab_id: str) -> dict:
     """Reload a tab by ID."""
-    return reload_tab(tab_id)
+    return _call("reload_tab", reload_tab, tab_id=tab_id)
 
 
 def arc_stop_tab(tab_id: str) -> dict:
     """Stop a loading tab by ID."""
-    return stop_tab(tab_id)
+    return _call("stop_tab", stop_tab, tab_id=tab_id)
 
 
 def arc_navigate_tab(tab_id: str, url: str) -> dict:
     """Navigate an existing tab to URL."""
-    return navigate_tab(tab_id, url)
+    return _call("navigate_tab", navigate_tab, tab_id=tab_id, url=url)
 
 
 def arc_go_back(tab_id: str) -> dict:
     """Go back in a tab's history."""
-    return go_back(tab_id)
+    return _call("go_back", go_back, tab_id=tab_id)
 
 
 def arc_go_forward(tab_id: str) -> dict:
     """Go forward in a tab's history."""
-    return go_forward(tab_id)
+    return _call("go_forward", go_forward, tab_id=tab_id)
 
 
 def arc_read_page_content(tab_id: str) -> dict:
     """Extract readable page text from a tab."""
-    return read_page_content(tab_id)
+    return _call("read_page_content", read_page_content, tab_id=tab_id)
 
 
 def arc_search_history(query: str, limit: int = 20) -> list[dict]:
     """Search Arc browser history by title or URL."""
-    return search_history(query, limit)
+    return _call("search_history", search_history, query=query, limit=limit)
 
 
 def arc_find_closed_tab(query: str) -> list[dict]:
     """Find previously closed tabs from history-like records."""
-    return find_closed_tab(query)
+    return _call("find_closed_tab", find_closed_tab, query=query)
 
 
 MCP_TOOL_FUNCTIONS: list[Callable] = [
@@ -141,4 +151,3 @@ def build_langgraph_tools(exclude: set[str] | None = None) -> list[BaseTool]:
     """Build LangGraph/LangChain tool objects from shared registry."""
     excluded = exclude or set()
     return [tool(fn) for fn in MCP_TOOL_FUNCTIONS if fn.__name__ not in excluded]
-
