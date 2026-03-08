@@ -36,7 +36,7 @@ Tabs belong to **spaces**, not windows. Windows are viewports — any window can
 Application
 └── Spaces (global)
     └── Tabs
-        └── location: topApp | pinned | unpinned
+        └── location: topApp | pinned | unpinned (readable)
 └── Windows (viewports, 1–N)
     └── active space (one per window at a time)
 ```
@@ -83,7 +83,6 @@ All functions return plain dicts. Errors returned as `{"error": "..."}`.
 | `navigate_tab(tab_id, url)`          | set `URL` on tab        | navigate existing tab           |
 | `go_back(tab_id)`                    | `go back` on tab        | —                               |
 | `go_forward(tab_id)`                 | `go forward` on tab     | —                               |
-| `set_tab_location(tab_id, location)` | set `location` property | `topApp`, `pinned`, `unpinned`  |
 
 **JavaScript**
 
@@ -104,7 +103,8 @@ Copy before reading to avoid WAL lock.
 **Not supported**
 
 - Moving tabs between spaces (workaround: `open_url` in target space + `close_tab` original)
-- Tab groups/folders within a space
+- Setting tab sidebar location (`location`) via AppleScript is declared but fails at runtime (`-10000`) in current Arc builds
+- Tab groups/folders within a space (no AppleScript contract exposed by Arc dictionary)
 - Creating or deleting spaces
 
 **Open mode guidance**

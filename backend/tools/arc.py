@@ -407,36 +407,6 @@ end tell
         return {"error": str(e)}
 
 
-def set_tab_location(tab_id: str, location: str) -> dict:
-    """
-    Set a tab's sidebar location within its space.
-    location: 'topApp' | 'pinned' | 'unpinned'
-    """
-    if location not in ("topApp", "pinned", "unpinned"):
-        return {"error": f"Invalid location '{location}'. Must be topApp, pinned, or unpinned."}
-    safe_tab_id = _as_apple_string(tab_id)
-    script = f"""
-tell application "Arc"
-    repeat with s in spaces of window 1
-        repeat with t in tabs of s
-            if (id of t as text) is "{safe_tab_id}" then
-                set location of t to "{location}"
-                return "ok"
-            end if
-        end repeat
-    end repeat
-    return "not_found"
-end tell
-"""
-    try:
-        result = _run(script)
-        if result == "not_found":
-            return {"error": f"Tab {tab_id} not found"}
-        return {"ok": True, "tab_id": tab_id, "location": location}
-    except RuntimeError as e:
-        return {"error": str(e)}
-
-
 # ---------------------------------------------------------------------------
 # JavaScript
 # ---------------------------------------------------------------------------

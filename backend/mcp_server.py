@@ -17,7 +17,6 @@ from tools.arc import (
     open_url_mini_window,
     read_page_content,
     reload_tab,
-    set_tab_location,
     stop_tab,
     switch_to_tab,
 )
@@ -150,18 +149,6 @@ def arc_go_back(tab_id: str) -> dict:
 def arc_go_forward(tab_id: str) -> dict:
     """Navigate forward in a tab's history."""
     return go_forward(tab_id)
-
-
-@mcp.tool()
-def arc_set_tab_location(tab_id: str, location: str) -> dict:
-    """
-    Set a tab's sidebar location within its space.
-    location must be one of: 'topApp', 'pinned', 'unpinned'
-    - topApp: pinned to the top of the sidebar (above the fold)
-    - pinned: pinned in the sidebar
-    - unpinned: regular (today) tab
-    """
-    return set_tab_location(tab_id, location)
 
 
 # ---------------------------------------------------------------------------
