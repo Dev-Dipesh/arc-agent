@@ -18,7 +18,6 @@ import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { MiddlewareHitlReviewView } from "./hitl-review";
-import { TokenLimitInterruptView } from "./token-limit-interrupt";
 
 function CustomComponent({
   message,
@@ -147,11 +146,6 @@ export function AssistantMessage({
             (isLastMessage || hasNoAIOrToolMessages) && (
               <ThreadView interrupt={threadInterrupt.value} />
             )}
-          {threadInterrupt?.value &&
-          isTokenLimitInterruptSchema(threadInterrupt.value) &&
-          isLastMessage ? (
-            <TokenLimitInterruptView interrupt={threadInterrupt.value} />
-          ) : null}
           {threadInterrupt?.value &&
           isMiddlewareHitlInterruptSchema(threadInterrupt.value) &&
           isLastMessage ? (

@@ -12,6 +12,8 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
+import { isTokenLimitInterruptSchema } from "@/lib/agent-inbox-interrupt";
+import { TokenLimitInterruptView } from "./messages/token-limit-interrupt";
 import { LangGraphLogoSVG } from "../icons/langgraph";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
@@ -381,6 +383,13 @@ export function Thread() {
                 {isLoading && !firstTokenReceived && (
                   <AssistantMessageLoading />
                 )}
+                {!isLoading &&
+                  stream.interrupt?.value &&
+                  isTokenLimitInterruptSchema(stream.interrupt.value) && (
+                    <TokenLimitInterruptView
+                      interrupt={stream.interrupt.value}
+                    />
+                  )}
               </>
             }
             footer={
