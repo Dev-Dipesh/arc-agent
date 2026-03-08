@@ -54,6 +54,12 @@ Set `NEXT_PUBLIC_API_URL=http://localhost:2024` and `NEXT_PUBLIC_ASSISTANT_ID=ag
 
 See `.env.example` for required variables. Copy to `.env` and fill in keys.
 
+## Commit Messages
+
+- Keep commit messages clean — no AI branding, attribution lines, or co-author footers.
+- Format: `type: short description` (conventional commits style).
+- Body is optional; use it only when the why isn't obvious from the subject.
+
 ## Collaboration Safety
 
 - Do not remove unknown or untracked files unless the user explicitly asks for deletion.

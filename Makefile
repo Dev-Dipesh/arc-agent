@@ -103,18 +103,10 @@ backend-up:
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
-		--watch \
 		--config langgraph.json \
 		--docker-compose ../docker/compose.yml \
 		--port "$${BACKEND_PORT:-2024}" \
-		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"; \
-	API_CID="$$(COMPOSE_PROJECT_NAME=arc-agent docker ps -q --filter label=com.docker.compose.project=arc-agent --filter label=com.docker.compose.service=langgraph-api | head -n1)"; \
-	if [[ -z "$$API_CID" ]]; then \
-		echo "Healthcheck failed: langgraph-api container not found."; \
-		exit 1; \
-	fi; \
-	echo "Running MCP healthcheck inside langgraph-api container..."; \
-	docker exec "$$API_CID" python -c "from mcp_remote_client import call_remote_mcp_tool; r=call_remote_mcp_tool('arc_list_spaces'); print('mcp_ok', len(r) if isinstance(r, list) else type(r).__name__)"
+		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"
 
 stack-up:
 	@set -euo pipefail; \
@@ -165,20 +157,10 @@ stack-up:
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
-		--watch \
 		--config langgraph.json \
 		--docker-compose ../docker/compose.yml \
 		--port "$${BACKEND_PORT:-2024}" \
-		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"; \
-	API_CID="$$(COMPOSE_PROJECT_NAME=arc-agent docker ps -q --filter label=com.docker.compose.project=arc-agent --filter label=com.docker.compose.service=langgraph-api | head -n1)"; \
-	if [[ -z "$$API_CID" ]]; then \
-		echo "Healthcheck failed: langgraph-api container not found."; \
-		exit 1; \
-	fi; \
-	echo "Running MCP healthcheck inside langgraph-api container..."; \
-	docker exec "$$API_CID" python -c "from mcp_remote_client import call_remote_mcp_tool; r=call_remote_mcp_tool('arc_list_spaces'); print('mcp_ok', len(r) if isinstance(r, list) else type(r).__name__)"; \
-	echo "Stack started. API: http://localhost:$${BACKEND_PORT:-2024} | Frontend: http://localhost:3000"; \
-	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml logs -f --tail=200 frontend postgres
+		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"
 
 stack-dev:
 	@set -euo pipefail; \
