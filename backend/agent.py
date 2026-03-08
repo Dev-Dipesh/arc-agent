@@ -26,6 +26,11 @@ from tool_registry import (
 PREFERENCES_DB_PATH = os.getenv("PREFERENCES_DB_PATH", ".arc_agent_prefs.sqlite")
 DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "mini_window")
 SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "gpt-4.1-mini")
+SUMMARY_TRIGGER_TOKENS = int(os.getenv("SUMMARY_TRIGGER_TOKENS", "12000"))
+SUMMARY_TRIGGER_MESSAGES = int(os.getenv("SUMMARY_TRIGGER_MESSAGES", "80"))
+SUMMARY_KEEP_MESSAGES = int(os.getenv("SUMMARY_KEEP_MESSAGES", "30"))
+TOOL_CALL_THREAD_LIMIT = int(os.getenv("TOOL_CALL_THREAD_LIMIT", "200"))
+TOOL_CALL_RUN_LIMIT = int(os.getenv("TOOL_CALL_RUN_LIMIT", "40"))
 
 SYSTEM_PROMPT = """
 You are Arc Agent, an assistant that controls Arc browser on macOS.
@@ -176,12 +181,15 @@ graph = create_agent(
         SummarizationMiddleware(
             model=SUMMARY_MODEL,
             trigger=[
-                ("tokens", 5000),
-                ("messages", 40),
+                ("tokens", SUMMARY_TRIGGER_TOKENS),
+                ("messages", SUMMARY_TRIGGER_MESSAGES),
             ],
-            keep=("messages", 20),
+            keep=("messages", SUMMARY_KEEP_MESSAGES),
         ),
-        ToolCallLimitMiddleware(thread_limit=80, run_limit=20),
+        ToolCallLimitMiddleware(
+            thread_limit=TOOL_CALL_THREAD_LIMIT,
+            run_limit=TOOL_CALL_RUN_LIMIT,
+        ),
         ToolRetryMiddleware(
             max_retries=2,
             backoff_factor=2.0,
