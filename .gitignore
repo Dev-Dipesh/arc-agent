@@ -22,6 +22,8 @@ build/
 langgraph.db
 langgraph.db-shm
 langgraph.db-wal
+backend/.arc_agent_prefs.sqlite
+backend/traces/
 
 # Node.js
 node_modules/

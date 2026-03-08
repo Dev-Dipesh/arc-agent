@@ -167,11 +167,14 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 
 `backend/agent.py` — imports tool functions directly (not via MCP).
 
-- ReAct agent via `create_react_agent`
+- Agent runtime via `langchain.agents.create_agent` (LangGraph-backed)
 - LLM: configurable via `LLM_MODEL` env (default `gpt-5o-mini`)
 - Tools: LangChain `@tool` wrappers around Phase 1 functions
-- HITL: `interrupt()` before `close_tab` or any bulk destructive action. Use langchain node-style middleware instead of custome building it
-- Memory: SQLite checkpointer for persistent conversation across sessions
+- HITL: `HumanInTheLoopMiddleware` for `arc_close_tab`
+- Memory (threads/checkpoints): runtime-managed by LangGraph server
+  - dev default: in-memory (non-persistent)
+  - durable mode: set `POSTGRES_URI` for persistence across restarts
+- Long-term local preference/personalization data: SQLite file via `PREFERENCES_DB_PATH`
 - System prompt covers Arc's data model, confirmation behaviour, response formatting
 - Runtime preference state (conversation/session): `open_mode = active_window | mini_window`
 - Routing policy:
@@ -180,6 +183,10 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
   - Allow explicit one-shot override per request (e.g., "open this one directly")
   - Persist user preference after explicit confirmation ("Use this as default")
 - Tracing backend selected via `TRACING_BACKEND` env (`langsmith` | `langfuse` | `jsonl` | `none`) through a thin tracer adapter
+- Context/runtime middlewares:
+  - `SummarizationMiddleware` for long threads
+  - `ToolCallLimitMiddleware` to cap loops/tool overuse
+  - `ToolRetryMiddleware` for transient tool failures
 
 `backend/langgraph.json`
 
@@ -208,6 +215,11 @@ NEXT_PUBLIC_ASSISTANT_ID=agent
 ```
 
 No code changes needed. Open in Safari/Firefox (not Arc).
+
+**Frontend runtime config**
+
+- `NEXT_PUBLIC_API_URL` (default `http://localhost:2024`)
+- `NEXT_PUBLIC_ASSISTANT_ID` (default `agent`)
 
 ---
 
@@ -271,13 +283,20 @@ arc-agent/
 ## Dev Workflow
 
 ```bash
-# Phase 2 test — MCP in Claude Code (add to .claude/settings.json, restart)
+# Start local Postgres in Docker (for future durable runtime modes and app metadata)
+./scripts/start_db.sh
+
+# Phase 2 test — MCP in Claude Code
 uv run python backend/mcp_server.py
 
-# Phase 3+4 — full stack
-cd backend && uv run langgraph dev      # Terminal 1
-cd frontend && pnpm dev                  # Terminal 2
+# Phase 3+4 — full stack (edge/local mode)
+./scripts/start_backend.sh   # Terminal 1
+./scripts/start_frontend.sh  # Terminal 2
 ```
+
+Note:
+- `backend/langgraph.db` is not used by default in server mode and can be ignored.
+- Conversation thread persistence in local `langgraph dev` depends on runtime behavior; preference/personalization data persists in `PREFERENCES_DB_PATH` SQLite file.
 
 ---
 

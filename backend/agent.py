@@ -1,18 +1,21 @@
 """LangGraph agent for Arc browser control (Phase 3)."""
 
-import atexit
 import os
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 from langchain.agents import AgentState, create_agent
-from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langchain.agents.middleware import (
+    HumanInTheLoopMiddleware,
+    SummarizationMiddleware,
+    ToolCallLimitMiddleware,
+    ToolRetryMiddleware,
+)
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.sqlite import SqliteSaver
 
+from tracing import get_tracing_callbacks
 from tool_registry import (
     arc_open_url,
     arc_open_url_active_window,
@@ -20,13 +23,9 @@ from tool_registry import (
     build_langgraph_tools,
 )
 
-CHECKPOINT_DB_PATH = os.getenv("CHECKPOINT_DB_PATH", "langgraph.db")
 PREFERENCES_DB_PATH = os.getenv("PREFERENCES_DB_PATH", ".arc_agent_prefs.sqlite")
 DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "mini_window")
-USE_CUSTOM_CHECKPOINTER = (
-    os.getenv("USE_CUSTOM_CHECKPOINTER", "false").strip().lower()
-    in {"1", "true", "yes"}
-)
+SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "gpt-4.1-mini")
 
 SYSTEM_PROMPT = """
 You are Arc Agent, an assistant that controls Arc browser on macOS.
@@ -152,16 +151,10 @@ TOOLS = build_langgraph_tools(exclude={"arc_open_url"}) + [
     open_url_legacy_tool,
 ]
 
-
-checkpointer = None
-if USE_CUSTOM_CHECKPOINTER:
-    _checkpoint_path = str(Path(CHECKPOINT_DB_PATH))
-    _checkpointer_cm = SqliteSaver.from_conn_string(_checkpoint_path)
-    checkpointer = _checkpointer_cm.__enter__()
-    atexit.register(lambda: _checkpointer_cm.__exit__(None, None, None))
+callbacks = get_tracing_callbacks()
 
 model_name = os.getenv("LLM_MODEL", "gpt-5o-mini")
-model = ChatOpenAI(model=model_name, temperature=0)
+model = ChatOpenAI(model=model_name, temperature=0, callbacks=callbacks)
 
 class ArcAgentState(AgentState):
     """Agent state extension hook for future fields."""
@@ -171,7 +164,7 @@ graph = create_agent(
     model=model,
     tools=TOOLS,
     system_prompt=SYSTEM_PROMPT,
-    checkpointer=checkpointer,
+    checkpointer=None,  # LangGraph runtime manages persistence in dev/server mode.
     state_schema=ArcAgentState,
     middleware=[
         HumanInTheLoopMiddleware(
@@ -179,6 +172,20 @@ graph = create_agent(
                 "arc_close_tab": True,
             },
             description_prefix="Arc action requires approval",
+        ),
+        SummarizationMiddleware(
+            model=SUMMARY_MODEL,
+            trigger=[
+                ("tokens", 5000),
+                ("messages", 40),
+            ],
+            keep=("messages", 20),
+        ),
+        ToolCallLimitMiddleware(thread_limit=80, run_limit=20),
+        ToolRetryMiddleware(
+            max_retries=2,
+            backoff_factor=2.0,
+            initial_delay=0.5,
         ),
     ],
     name="agent",
