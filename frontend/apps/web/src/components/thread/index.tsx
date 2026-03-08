@@ -340,6 +340,18 @@ export function Thread() {
               <>
                 {messages
                   .filter((m) => !m.id?.startsWith(DO_NOT_RENDER_ID_PREFIX))
+                  .filter((m) => {
+                    // Filter HumanMessage summaries injected by SummarizationMiddleware
+                    if (m.type === "human") {
+                      return (m as any).additional_kwargs?.lc_source !== "summarization";
+                    }
+                    // Filter transient AI messages streamed during summarization
+                    if (m.type === "ai") {
+                      const content = typeof m.content === "string" ? m.content : "";
+                      return !(content.includes("## SESSION INTENT") && content.includes("## SUMMARY"));
+                    }
+                    return true;
+                  })
                   .map((message, index) =>
                     message.type === "human" ? (
                       <HumanMessage
