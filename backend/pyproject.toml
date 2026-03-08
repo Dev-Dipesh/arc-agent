@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "AI agent for controlling Arc browser on macOS"
 requires-python = ">=3.12"
 dependencies = [
+    "langchain>=1.2.10",
     "langchain-openai>=1.1.10",
     "langgraph>=1.0.10",
     "langgraph-checkpoint-sqlite>=3.0.3",

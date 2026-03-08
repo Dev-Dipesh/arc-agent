@@ -6,15 +6,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from langchain.agents import AgentState, create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langgraph.prebuilt import create_react_agent
-from langgraph.types import interrupt
 
 from tool_registry import (
-    arc_close_tab,
     arc_open_url,
     arc_open_url_active_window,
     arc_open_url_mini_window,
@@ -34,8 +33,7 @@ Rules:
 - Use open mode preference for generic "open URL" requests:
   - active_window: open directly in currently active Arc window.
   - mini_window: use Arc target-space path (mini-window handoff behavior).
-- Ask for explicit confirmation before destructive actions.
-- For arc_close_tab tool, a runtime interrupt confirmation is required.
+- Ask for explicit confirmation before destructive actions. Middleware enforces HITL for arc_close_tab.
 - Be concise and include tab IDs when proposing follow-up tab actions.
 """.strip()
 
@@ -143,38 +141,11 @@ def open_url_legacy_tool(url: str, space_id: str = "") -> dict:
     return arc_open_url(url, space_id or "")
 
 
-@tool("arc_close_tab")
-def close_tab_with_interrupt(tab_id: str) -> dict:
-    """Close a tab by ID (requires interrupt confirmation)."""
-    response = interrupt(
-        {
-            "action": "close_tab",
-            "tab_id": tab_id,
-            "question": f"Confirm closing tab {tab_id}?",
-            "instructions": "Resume with true/yes to approve, otherwise false/no to cancel.",
-        }
-    )
-
-    approved = False
-    if isinstance(response, bool):
-        approved = response
-    elif isinstance(response, str):
-        approved = response.strip().lower() in {"yes", "y", "true", "approve", "approved"}
-    elif isinstance(response, dict):
-        approved = bool(response.get("approved"))
-
-    if not approved:
-        return {"ok": False, "cancelled": True, "tab_id": tab_id}
-
-    return arc_close_tab(tab_id)
-
-
-TOOLS = build_langgraph_tools(exclude={"arc_open_url", "arc_close_tab"}) + [
+TOOLS = build_langgraph_tools(exclude={"arc_open_url"}) + [
     set_open_mode_preference,
     get_open_mode_preference,
     open_url_with_preference,
     open_url_legacy_tool,
-    close_tab_with_interrupt,
 ]
 
 
@@ -186,10 +157,23 @@ atexit.register(lambda: _checkpointer_cm.__exit__(None, None, None))
 model_name = os.getenv("LLM_MODEL", "gpt-5o-mini")
 model = ChatOpenAI(model=model_name, temperature=0)
 
-graph = create_react_agent(
+class ArcAgentState(AgentState):
+    """Agent state extension hook for future fields."""
+
+
+graph = create_agent(
     model=model,
     tools=TOOLS,
-    prompt=SYSTEM_PROMPT,
+    system_prompt=SYSTEM_PROMPT,
     checkpointer=checkpointer,
+    state_schema=ArcAgentState,
+    middleware=[
+        HumanInTheLoopMiddleware(
+            interrupt_on={
+                "arc_close_tab": True,
+            },
+            description_prefix="Arc action requires approval",
+        ),
+    ],
     name="agent",
 )
