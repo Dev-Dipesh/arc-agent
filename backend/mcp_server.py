@@ -3,6 +3,7 @@
 import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from tool_registry import MCP_TOOL_FUNCTIONS
 
@@ -10,6 +11,21 @@ mcp = FastMCP(
     "arc-browser",
     host=os.getenv("ARC_MCP_HOST", "127.0.0.1"),
     port=int(os.getenv("ARC_MCP_PORT", "8765")),
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "127.0.0.1:*",
+            "localhost:*",
+            "[::1]:*",
+            "host.docker.internal:*",
+        ],
+        allowed_origins=[
+            "http://127.0.0.1:*",
+            "http://localhost:*",
+            "http://[::1]:*",
+            "http://host.docker.internal:*",
+        ],
+    ),
     instructions=(
         "Tools for controlling Arc browser on macOS. "
         "Tabs belong to spaces; use space context when acting on tabs. "

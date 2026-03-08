@@ -36,7 +36,18 @@ def _call(tool_name: str, local_fn: Callable, /, **kwargs):
             return call_remote_mcp_tool(tool_name, **kwargs)
         except MCPRemoteError as e:
             return {"error": str(e)}
-    return local_fn(**kwargs)
+    try:
+        return local_fn(**kwargs)
+    except FileNotFoundError as e:
+        if "osascript" in str(e):
+            return {
+                "error": (
+                    "Local Arc execution requires macOS 'osascript', which is unavailable "
+                    "in this runtime. Configure ARC_MCP_SSE_URL to a host MCP server "
+                    "(example: http://host.docker.internal:8765/sse)."
+                )
+            }
+        return {"error": str(e)}
 
 
 def arc_list_spaces() -> list[dict]:

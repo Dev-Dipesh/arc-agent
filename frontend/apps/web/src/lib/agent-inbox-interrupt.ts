@@ -17,3 +17,14 @@ export function isAgentInboxInterruptSchema(
     "allow_ignore" in valueAsObject.config
   );
 }
+
+export function isMiddlewareHitlInterruptSchema(
+  value: unknown,
+): value is {
+  action_requests: Array<{ name: string; args?: Record<string, unknown> }>;
+  review_configs: Array<{ action_name: string; allowed_decisions: string[] }>;
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.action_requests) && Array.isArray(v.review_configs);
+}

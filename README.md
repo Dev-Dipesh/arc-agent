@@ -6,6 +6,10 @@ Natural-language Arc browser control on macOS using:
 - Next.js chat frontend
 - Host-local MCP server for AppleScript tool execution
 
+![LangSmith tracing](docs/imgs/Langsmith_tracing.png)
+![Close tab approval](docs/imgs/close_tab_approval.png)
+![Close tab success](docs/imgs/close_tab_success.png)
+
 ## What This Project Does
 
 Arc Agent lets you chat with an agent that can:

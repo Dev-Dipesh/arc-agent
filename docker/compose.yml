@@ -24,8 +24,16 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:2024}
       NEXT_PUBLIC_ASSISTANT_ID: ${NEXT_PUBLIC_ASSISTANT_ID:-agent}
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      NEXT_DISABLE_ESLINT: "1"
     ports:
       - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - frontend-node_modules:/app/node_modules
+      - frontend-app-web-node_modules:/app/apps/web/node_modules
+      - frontend-app-web-next:/app/apps/web/.next
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -34,3 +42,6 @@ services:
 
 volumes:
   arc-agent-pgdata:
+  frontend-node_modules:
+  frontend-app-web-node_modules:
+  frontend-app-web-next:

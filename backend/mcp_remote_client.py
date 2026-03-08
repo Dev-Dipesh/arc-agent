@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 from typing import Any
 
 import anyio
@@ -18,6 +19,11 @@ class MCPRemoteError(RuntimeError):
 
 def _sse_url() -> str:
     raw = os.getenv("ARC_MCP_SSE_URL", "").strip()
+    if not raw:
+        raw = os.getenv("ARC_MCP_SSE_URL_DOCKER", "").strip()
+    if not raw and platform.system().lower() != "darwin":
+        # In container/Linux environments, default to host bridge endpoint.
+        raw = "http://host.docker.internal:8765/sse"
     if not raw:
         return ""
     return raw if raw.endswith("/sse") else f"{raw.rstrip('/')}/sse"

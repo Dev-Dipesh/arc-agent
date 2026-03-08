@@ -9,10 +9,14 @@ import { cn } from "@/lib/utils";
 import { ToolCalls, ToolResult } from "./tool-calls";
 import { MessageContentComplex } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
-import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
+import {
+  isAgentInboxInterruptSchema,
+  isMiddlewareHitlInterruptSchema,
+} from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
+import { MiddlewareHitlReviewView } from "./hitl-review";
 
 function CustomComponent({
   message,
@@ -142,7 +146,13 @@ export function AssistantMessage({
               <ThreadView interrupt={threadInterrupt.value} />
             )}
           {threadInterrupt?.value &&
+          isMiddlewareHitlInterruptSchema(threadInterrupt.value) &&
+          isLastMessage ? (
+            <MiddlewareHitlReviewView interrupt={threadInterrupt.value} />
+          ) : null}
+          {threadInterrupt?.value &&
           !isAgentInboxInterruptSchema(threadInterrupt.value) &&
+          !isMiddlewareHitlInterruptSchema(threadInterrupt.value) &&
           isLastMessage ? (
             <GenericInterruptView interrupt={threadInterrupt.value} />
           ) : null}

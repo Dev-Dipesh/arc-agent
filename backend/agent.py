@@ -40,9 +40,14 @@ Rules:
 - Call arc_list_spaces before space-specific operations if space identity is ambiguous.
 - Use open mode preference for generic "open URL" requests:
   - active_window: open directly in currently active Arc window.
-  - mini_window: use Arc target-space path (mini-window handoff behavior).
+- mini_window: use Arc target-space path (mini-window handoff behavior).
 - Ask for explicit confirmation before destructive actions. Middleware enforces HITL for arc_close_tab.
-- Be concise and include tab IDs when proposing follow-up tab actions.
+- Response formatting:
+  - Default: do not list tab IDs in informational summaries.
+  - Prefer concise counts and space/tab titles.
+  - For follow-up actions, ask/use natural-language references first (title, URL, space, recency, ordinal).
+  - Do not include sample IDs unless the user explicitly asks for IDs.
+  - Only provide full tab IDs when explicitly requested.
 """.strip()
 
 
@@ -174,7 +179,7 @@ graph = create_agent(
     middleware=[
         HumanInTheLoopMiddleware(
             interrupt_on={
-                "arc_close_tab": True,
+                "arc_close_tab": {"allowed_decisions": ["approve", "reject"]},
             },
             description_prefix="Arc action requires approval",
         ),

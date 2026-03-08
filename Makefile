@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
+BRIDGE_PID_FILE := .arc-agent-bridge.pid
 
-.PHONY: help bridge compose-up compose-down compose-logs backend-dev backend-up stack-dev stack-up lint
+.PHONY: help bridge bridge-stop compose-up compose-down compose-logs backend-dev backend-up stack-dev stack-up lint
 
 # Colors
 RED := \033[0;31m
@@ -22,6 +23,7 @@ help:
 	@printf "%b\n" "  $(YELLOW)make backend-up$(NC)    - Start langgraph up with compose addon + Postgres"
 	@printf "%b\n" "  $(YELLOW)make backend-dev$(NC)   - Start langgraph dev (non-persistent checkpoints)"
 	@printf "%b\n" "  $(YELLOW)make bridge$(NC)        - Start host Arc MCP server only (foreground)"
+	@printf "%b\n" "  $(YELLOW)make bridge-stop$(NC)   - Stop managed host MCP server if running"
 	@printf "\n"
 	@printf "%b\n" "$(GREEN)Docker Compose$(NC)"
 	@printf "%b\n" "  $(YELLOW)make compose-up$(NC)    - Start frontend + Postgres"
@@ -32,13 +34,45 @@ help:
 	@printf "%b\n" "  $(YELLOW)make lint$(NC)          - Run backend ruff checks"
 	@printf "\n"
 	@printf "%b\n" "$(CYAN)Shutdown$(NC)"
-	@printf "%b\n" "  1) Press Ctrl+C in the terminal running make stack-up (stops host MCP + backend)"
-	@printf "%b\n" "  2) Run make compose-down (stops frontend + Postgres containers)"
+	@printf "%b\n" "  Press Ctrl+C in make stack-up terminal (graceful full-stack shutdown)"
+	@printf "%b\n" "  Or run make compose-down for frontend/postgres only"
 	@printf "\n"
 	@printf "%b\n" "$(RED)Note:$(NC) Arc automation requires the MCP server to run on host macOS."
 
 bridge:
 	./scripts/start_bridge.sh
+
+bridge-stop:
+	@set -euo pipefail; \
+	BRIDGE_PORT="$${ARC_MCP_PORT:-$${ARC_BRIDGE_PORT:-8765}}"; \
+	ROOT="$$(pwd)"; \
+	if [[ -f "$(BRIDGE_PID_FILE)" ]]; then \
+		PID="$$(cat "$(BRIDGE_PID_FILE)")"; \
+		if kill -0 "$$PID" >/dev/null 2>&1; then \
+			kill "$$PID" >/dev/null 2>&1 || true; \
+			sleep 1; \
+			if kill -0 "$$PID" >/dev/null 2>&1; then \
+				kill -9 "$$PID" >/dev/null 2>&1 || true; \
+			fi; \
+			echo "Stopped managed bridge process $$PID."; \
+		fi; \
+		rm -f "$(BRIDGE_PID_FILE)"; \
+	else \
+		PID="$$(lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true)"; \
+		if [[ -n "$$PID" ]]; then \
+			kill "$$PID" >/dev/null 2>&1 || true; \
+			sleep 1; \
+			if kill -0 "$$PID" >/dev/null 2>&1; then \
+				kill -9 "$$PID" >/dev/null 2>&1 || true; \
+			fi; \
+			echo "Stopped bridge listener on port $$BRIDGE_PORT (pid $$PID)."; \
+		else \
+			echo "No managed bridge PID file found and no listener on port $$BRIDGE_PORT."; \
+		fi; \
+	fi; \
+	pkill -f "$$ROOT/scripts/start_bridge.sh" >/dev/null 2>&1 || true; \
+	pkill -f "$$ROOT/backend/mcp_server.py" >/dev/null 2>&1 || true; \
+	pkill -f "uv --directory backend run python $$ROOT/backend/mcp_server.py" >/dev/null 2>&1 || true
 
 compose-up:
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend
@@ -69,23 +103,43 @@ backend-up:
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
+		--watch \
 		--config langgraph.json \
 		--docker-compose ../docker/compose.yml \
 		--port "$${BACKEND_PORT:-2024}" \
-		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"
+		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"; \
+	API_CID="$$(COMPOSE_PROJECT_NAME=arc-agent docker ps -q --filter label=com.docker.compose.project=arc-agent --filter label=com.docker.compose.service=langgraph-api | head -n1)"; \
+	if [[ -z "$$API_CID" ]]; then \
+		echo "Healthcheck failed: langgraph-api container not found."; \
+		exit 1; \
+	fi; \
+	echo "Running MCP healthcheck inside langgraph-api container..."; \
+	docker exec "$$API_CID" python -c "from mcp_remote_client import call_remote_mcp_tool; r=call_remote_mcp_tool('arc_list_spaces'); print('mcp_ok', len(r) if isinstance(r, list) else type(r).__name__)"
 
 stack-up:
-	@set -a; [ -f .env ] && source .env; set +a; \
+	@set -euo pipefail; \
+	set -a; [ -f .env ] && source .env; set +a; \
 	BRIDGE_PORT="$${ARC_MCP_PORT:-$${ARC_BRIDGE_PORT:-8765}}"; \
 	BRIDGE_STARTED=0; \
+	BRIDGE_PID=""; \
+	MANAGED_PID=""; \
+	if [[ -f "$(BRIDGE_PID_FILE)" ]]; then \
+		MANAGED_PID="$$(cat "$(BRIDGE_PID_FILE)" 2>/dev/null || true)"; \
+	fi; \
 	if lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then \
-		echo "Bridge port $$BRIDGE_PORT already in use; reusing existing bridge process."; \
+		BRIDGE_PID="$$(lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN -t | head -n 1)"; \
+		if [[ -n "$$MANAGED_PID" && "$$MANAGED_PID" == "$$BRIDGE_PID" ]]; then \
+			BRIDGE_STARTED=1; \
+			echo "Bridge port $$BRIDGE_PORT in use by managed process $$BRIDGE_PID; will clean up on exit."; \
+		else \
+			echo "Bridge port $$BRIDGE_PORT already in use by PID $$BRIDGE_PID; reusing without ownership."; \
+		fi; \
 	else \
 		./scripts/start_bridge.sh & BRIDGE_PID=$$!; \
 		BRIDGE_STARTED=1; \
+		echo "$$BRIDGE_PID" > "$(BRIDGE_PID_FILE)"; \
 		echo "Started bridge on port $$BRIDGE_PORT (pid $$BRIDGE_PID)."; \
 	fi; \
-	trap 'if [[ "$$BRIDGE_STARTED" = "1" ]]; then kill $$BRIDGE_PID 2>/dev/null || true; fi' EXIT INT TERM; \
 	POSTGRES_URI_EFFECTIVE="$${POSTGRES_URI_DOCKER:-}"; \
 	if [[ -z "$$POSTGRES_URI_EFFECTIVE" && -n "$${POSTGRES_URI:-}" ]]; then \
 		POSTGRES_URI_EFFECTIVE="$$(printf '%s' "$$POSTGRES_URI" | sed -E 's/@(localhost|127\.0\.0\.1):/@postgres:/')"; \
@@ -98,18 +152,40 @@ stack-up:
 		echo "Postgres URI still points to localhost. Set POSTGRES_URI_DOCKER to use host 'postgres'."; \
 		exit 1; \
 	fi; \
+	cleanup() { \
+		echo; \
+		echo "Stopping stack..."; \
+		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true; \
+		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
+			kill $$BRIDGE_PID 2>/dev/null || true; \
+			rm -f "$(BRIDGE_PID_FILE)"; \
+		fi; \
+	}; \
+	trap cleanup EXIT INT TERM; \
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
 	COMPOSE_PROJECT_NAME=arc-agent \
 	uv run langgraph up \
+		--watch \
 		--config langgraph.json \
 		--docker-compose ../docker/compose.yml \
 		--port "$${BACKEND_PORT:-2024}" \
-		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"
+		--postgres-uri "$$POSTGRES_URI_EFFECTIVE"; \
+	API_CID="$$(COMPOSE_PROJECT_NAME=arc-agent docker ps -q --filter label=com.docker.compose.project=arc-agent --filter label=com.docker.compose.service=langgraph-api | head -n1)"; \
+	if [[ -z "$$API_CID" ]]; then \
+		echo "Healthcheck failed: langgraph-api container not found."; \
+		exit 1; \
+	fi; \
+	echo "Running MCP healthcheck inside langgraph-api container..."; \
+	docker exec "$$API_CID" python -c "from mcp_remote_client import call_remote_mcp_tool; r=call_remote_mcp_tool('arc_list_spaces'); print('mcp_ok', len(r) if isinstance(r, list) else type(r).__name__)"; \
+	echo "Stack started. API: http://localhost:$${BACKEND_PORT:-2024} | Frontend: http://localhost:3000"; \
+	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml logs -f --tail=200 frontend postgres
 
 stack-dev:
-	@set -a; [ -f .env ] && source .env; set +a; \
+	@set -euo pipefail; \
+	set -a; [ -f .env ] && source .env; set +a; \
 	BRIDGE_PORT="$${ARC_MCP_PORT:-$${ARC_BRIDGE_PORT:-8765}}"; \
 	BRIDGE_STARTED=0; \
+	BRIDGE_PID=""; \
 	if lsof -nP -iTCP:"$$BRIDGE_PORT" -sTCP:LISTEN >/dev/null 2>&1; then \
 		echo "Bridge port $$BRIDGE_PORT already in use; reusing existing bridge process."; \
 	else \
@@ -117,8 +193,17 @@ stack-dev:
 		BRIDGE_STARTED=1; \
 		echo "Started bridge on port $$BRIDGE_PORT (pid $$BRIDGE_PID)."; \
 	fi; \
-	trap 'if [[ "$$BRIDGE_STARTED" = "1" ]]; then kill $$BRIDGE_PID 2>/dev/null || true; fi' EXIT INT TERM; \
+	cleanup() { \
+		echo; \
+		echo "Stopping dev-live stack..."; \
+		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true; \
+		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
+			kill $$BRIDGE_PID 2>/dev/null || true; \
+		fi; \
+	}; \
+	trap cleanup EXIT INT TERM; \
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend; \
+	echo "Starting backend dev server on http://127.0.0.1:$${BACKEND_PORT:-2024} ..."; \
 	cd backend && uv run langgraph dev --config langgraph.json --port "$${BACKEND_PORT:-2024}" --no-browser
 
 lint:
