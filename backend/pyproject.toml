@@ -1,7 +1,7 @@
 [project]
-name = "backend"
+name = "arc-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "AI agent for controlling Arc browser on macOS"
 requires-python = ">=3.12"
 dependencies = [
     "langchain-openai>=1.1.10",

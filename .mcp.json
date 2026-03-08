@@ -2,7 +2,7 @@
   "mcpServers": {
     "arc": {
       "command": "uv",
-      "args": ["run", "--project", "/Users/dipesh/Local-Projects/arc-agent/backend", "python", "/Users/dipesh/Local-Projects/arc-agent/backend/mcp_server.py"]
+      "args": ["--directory", "backend", "run", "python", "mcp_server.py"]
     }
   }
 }

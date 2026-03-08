@@ -187,5 +187,9 @@ def arc_find_closed_tab(query: str) -> list[dict]:
 # Entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
     mcp.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()
