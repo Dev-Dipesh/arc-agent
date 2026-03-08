@@ -65,6 +65,13 @@ Starts:
 - frontend container
 - postgres container
 
+Once running:
+
+| Service | URL |
+|---|---|
+| Chat UI | http://localhost:3000 |
+| LangGraph Studio | https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024 |
+
 ### Dev mode (no license checks)
 
 ```bash
@@ -72,6 +79,13 @@ make stack-dev
 ```
 
 Uses `langgraph dev` instead of `langgraph up` — no LangSmith deployment license required, non-persistent checkpoints.
+
+Once running:
+
+| Service | URL |
+|---|---|
+| Chat UI | http://localhost:3000 |
+| LangGraph Studio | https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024 |
 
 ### Bring everything down
 
