@@ -18,6 +18,8 @@ A conversational AI agent that controls Arc browser on macOS. The user interacts
 - **Browser control**: macOS `osascript` (AppleScript) — no extensions or CDP needed
 - **Tracing**: LangSmith (already configured)
 
+> **UI isolation**: During dev/testing, open `localhost:3000` in Safari or Firefox — never in Arc, since the agent controls Arc and could accidentally close the tab. Post-launch: wrap with Tauri for a standalone macOS app.
+
 ---
 
 ## Phase 1 — Backend (LangGraph Agent)
@@ -32,16 +34,43 @@ A conversational AI agent that controls Arc browser on macOS. The user interacts
 
 Each tool wraps an AppleScript command via `subprocess.run(["osascript", "-e", ...])`.
 
-| Tool | AppleScript Target | Returns |
-|------|--------------------|---------|
-| `list_spaces` | `window 1 → every space` | List of space names + IDs |
-| `list_tabs` | `space → every tab` | Tabs with title, URL, ID |
+Capabilities verified against Arc's actual AppleScript dictionary (`sdef /Applications/Arc.app`).
+
+**Tab management**
+
+| Tool | AppleScript | Returns |
+|------|-------------|---------|
+| `list_tabs` | `every tab` on window or space | Tabs with title, URL, ID, location, loading |
 | `close_tab` | `close tab id X` | Confirmation |
-| `switch_to_tab` | `tell tab X to select` | Confirmation |
-| `move_tab_to_space` | `move tab to space` | Confirmation |
-| `open_url` | `make new tab with URL` | New tab info |
-| `find_tabs` | Search all tabs | Matching tabs |
-| `reload_tab` | `reload tab` | Confirmation |
+| `switch_to_tab` | `select` on tab | Confirmation |
+| `reload_tab` | `reload` on tab | Confirmation |
+| `stop_tab` | `stop` on tab | Confirmation |
+| `navigate_tab` | Set `URL` property on tab (read-write) | Confirmation |
+| `find_tabs` | Iterate all tabs, filter by title/URL | Matching tabs |
+| `open_url` | `make new tab` + set URL | New tab info |
+| `set_tab_location` | Set `location` on tab: `topApp`, `pinned`, `unpinned` | Confirmation |
+
+**Space management**
+
+| Tool | AppleScript | Returns |
+|------|-------------|---------|
+| `list_spaces` | `every space` on window | Space names + IDs |
+| `focus_space` | `focus` on space | Confirmation |
+
+**Navigation**
+
+| Tool | AppleScript | Returns |
+|------|-------------|---------|
+| `go_back` | `go back` on tab | Confirmation |
+| `go_forward` | `go forward` on tab | Confirmation |
+
+**JavaScript execution**
+
+| Tool | AppleScript | Returns |
+|------|-------------|---------|
+| `run_javascript` | `execute` on tab with JavaScript string | Script return value |
+
+> **Not supported**: Moving tabs between spaces — no such command exists in Arc's AppleScript dictionary.
 
 All tools return structured dicts. Errors are caught and returned as `{"error": "..."}` so the agent can report them gracefully.
 
