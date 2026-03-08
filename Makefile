@@ -2,7 +2,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 BRIDGE_PID_FILE := .arc-agent-bridge.pid
 
-.PHONY: help bridge bridge-stop compose-up compose-down compose-logs backend-dev backend-up stack-dev stack-up lint
+.PHONY: help bridge bridge-stop compose-up compose-down compose-logs backend-dev backend-up stack-dev stack-up frontend-restart backend-restart lint
 
 # Colors
 RED := \033[0;31m
@@ -25,6 +25,10 @@ help:
 	@printf "%b\n" "  $(YELLOW)make bridge$(NC)        - Start host Arc MCP server only (foreground)"
 	@printf "%b\n" "  $(YELLOW)make bridge-stop$(NC)   - Stop managed host MCP server if running"
 	@printf "\n"
+	@printf "%b\n" "$(GREEN)Hot Reload (run alongside stack-up in a second terminal)$(NC)"
+	@printf "%b\n" "  $(YELLOW)make frontend-restart$(NC) - Rebuild + restart only the frontend container"
+	@printf "%b\n" "  $(YELLOW)make backend-restart$(NC)  - Rebuild + restart only the langgraph-api container"
+	@printf "\n"
 	@printf "%b\n" "$(GREEN)Docker Compose$(NC)"
 	@printf "%b\n" "  $(YELLOW)make compose-up$(NC)    - Start frontend + Postgres"
 	@printf "%b\n" "  $(YELLOW)make compose-down$(NC)  - Stop compose services"
@@ -34,8 +38,8 @@ help:
 	@printf "%b\n" "  $(YELLOW)make lint$(NC)          - Run backend ruff checks"
 	@printf "\n"
 	@printf "%b\n" "$(CYAN)Shutdown$(NC)"
-	@printf "%b\n" "  Press Ctrl+C in make stack-up terminal (graceful full-stack shutdown)"
-	@printf "%b\n" "  Or run make compose-down for frontend/postgres only"
+	@printf "%b\n" "  Ctrl+C in make stack-up/stack-dev — stops langgraph + bridge only"
+	@printf "%b\n" "  make compose-down                 — stops postgres + frontend (full teardown)"
 	@printf "\n"
 	@printf "%b\n" "$(RED)Note:$(NC) Arc automation requires the MCP server to run on host macOS."
 
@@ -144,14 +148,17 @@ stack-up:
 		echo "Postgres URI still points to localhost. Set POSTGRES_URI_DOCKER to use host 'postgres'."; \
 		exit 1; \
 	fi; \
+	echo "Starting postgres + frontend (detached)..."; \
+	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend; \
 	cleanup() { \
 		echo; \
-		echo "Stopping stack..."; \
-		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true; \
+		echo "Stopping langgraph-api..."; \
+		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml stop langgraph-api >/dev/null 2>&1 || true; \
 		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
 			kill $$BRIDGE_PID 2>/dev/null || true; \
 			rm -f "$(BRIDGE_PID_FILE)"; \
 		fi; \
+		echo "postgres + frontend still running. Use 'make compose-down' to stop everything."; \
 	}; \
 	trap cleanup EXIT INT TERM; \
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
@@ -177,16 +184,22 @@ stack-dev:
 	fi; \
 	cleanup() { \
 		echo; \
-		echo "Stopping dev-live stack..."; \
-		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down --remove-orphans >/dev/null 2>&1 || true; \
+		echo "Stopping dev backend..."; \
 		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
 			kill $$BRIDGE_PID 2>/dev/null || true; \
 		fi; \
+		echo "postgres + frontend still running. Use 'make compose-down' to stop everything."; \
 	}; \
 	trap cleanup EXIT INT TERM; \
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend; \
 	echo "Starting backend dev server on http://127.0.0.1:$${BACKEND_PORT:-2024} ..."; \
 	cd backend && uv run langgraph dev --config langgraph.json --port "$${BACKEND_PORT:-2024}" --no-browser
+
+frontend-restart:
+	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build frontend
+
+backend-restart:
+	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build langgraph-api
 
 lint:
 	cd backend && uv run ruff check .
