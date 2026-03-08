@@ -7,10 +7,10 @@ from typing import Any
 from langchain.agents import AgentState, create_agent
 from langchain.agents.middleware import (
     HumanInTheLoopMiddleware,
-    SummarizationMiddleware,
     ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
+from token_limit_middleware import TokenLimitWarningMiddleware
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -26,9 +26,9 @@ from tool_registry import (
 PREFERENCES_DB_PATH = os.getenv("PREFERENCES_DB_PATH", ".arc_agent_prefs.sqlite")
 DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "mini_window")
 SUMMARY_MODEL = os.getenv("SUMMARY_MODEL", "gpt-4.1-mini")
-SUMMARY_TRIGGER_TOKENS = int(os.getenv("SUMMARY_TRIGGER_TOKENS", "12000"))
-SUMMARY_TRIGGER_MESSAGES = int(os.getenv("SUMMARY_TRIGGER_MESSAGES", "80"))
-SUMMARY_KEEP_MESSAGES = int(os.getenv("SUMMARY_KEEP_MESSAGES", "30"))
+SUMMARY_TRIGGER_TOKENS = int(os.getenv("SUMMARY_TRIGGER_TOKENS", "80000"))
+SUMMARY_TRIGGER_MESSAGES = int(os.getenv("SUMMARY_TRIGGER_MESSAGES", "120"))
+SUMMARY_KEEP_MESSAGES = int(os.getenv("SUMMARY_KEEP_MESSAGES", "60"))
 TOOL_CALL_THREAD_LIMIT = int(os.getenv("TOOL_CALL_THREAD_LIMIT", "200"))
 TOOL_CALL_RUN_LIMIT = int(os.getenv("TOOL_CALL_RUN_LIMIT", "40"))
 
@@ -183,7 +183,7 @@ graph = create_agent(
             },
             description_prefix="Arc action requires approval",
         ),
-        SummarizationMiddleware(
+        TokenLimitWarningMiddleware(
             model=SUMMARY_MODEL,
             trigger=[
                 ("tokens", SUMMARY_TRIGGER_TOKENS),

@@ -12,11 +12,13 @@ import { Fragment } from "react/jsx-runtime";
 import {
   isAgentInboxInterruptSchema,
   isMiddlewareHitlInterruptSchema,
+  isTokenLimitInterruptSchema,
 } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { GenericInterruptView } from "./generic-interrupt";
 import { MiddlewareHitlReviewView } from "./hitl-review";
+import { TokenLimitInterruptView } from "./token-limit-interrupt";
 
 function CustomComponent({
   message,
@@ -146,6 +148,11 @@ export function AssistantMessage({
               <ThreadView interrupt={threadInterrupt.value} />
             )}
           {threadInterrupt?.value &&
+          isTokenLimitInterruptSchema(threadInterrupt.value) &&
+          isLastMessage ? (
+            <TokenLimitInterruptView interrupt={threadInterrupt.value} />
+          ) : null}
+          {threadInterrupt?.value &&
           isMiddlewareHitlInterruptSchema(threadInterrupt.value) &&
           isLastMessage ? (
             <MiddlewareHitlReviewView interrupt={threadInterrupt.value} />
@@ -153,6 +160,7 @@ export function AssistantMessage({
           {threadInterrupt?.value &&
           !isAgentInboxInterruptSchema(threadInterrupt.value) &&
           !isMiddlewareHitlInterruptSchema(threadInterrupt.value) &&
+          !isTokenLimitInterruptSchema(threadInterrupt.value) &&
           isLastMessage ? (
             <GenericInterruptView interrupt={threadInterrupt.value} />
           ) : null}

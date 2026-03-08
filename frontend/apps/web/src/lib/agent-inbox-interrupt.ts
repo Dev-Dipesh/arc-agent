@@ -18,6 +18,14 @@ export function isAgentInboxInterruptSchema(
   );
 }
 
+export function isTokenLimitInterruptSchema(
+  value: unknown,
+): value is { type: "token_limit_warning"; token_count: number } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === "token_limit_warning" && typeof v.token_count === "number";
+}
+
 export function isMiddlewareHitlInterruptSchema(
   value: unknown,
 ): value is {
