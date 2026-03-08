@@ -249,6 +249,27 @@ For larger changes, open an issue first to align on the approach before investin
 
 **Use Safari or Firefox during development** — never Arc itself, as the agent controls Arc and could close the tab you're working in.
 
+### Ideas for contributors
+
+The current control layer is AppleScript-only. Each method covers different ground — they're complementary, not competing:
+
+| Capability | AppleScript | CDP (Chromium DevTools) | Browser Extension API |
+|---|---|---|---|
+| List/switch spaces | ✓ | — | — |
+| List/open/close tabs | ✓ | ✓ | ✓ |
+| Pin/unpin tabs | ✗ (Arc bug) | ✗ | ✓ |
+| Read page DOM/text | — | ✓ | ✓ |
+| Execute JavaScript | — | ✓ | ✓ |
+| Screenshot a tab | — | ✓ | — |
+| Intercept network | — | ✓ | ✓ |
+| History/bookmarks | ✓ (partial) | — | ✓ |
+
+**CDP layer** — Arc is Chromium-based. Launching it with `--remote-debugging-port=9222` exposes a WebSocket API (`ws://localhost:9222`) that allows JS execution, DOM inspection, screenshots, and network interception per tab. Useful for deep page interaction the agent currently can't do.
+
+**Chrome extension bridge** — A small extension installed in Arc can expose a local HTTP endpoint and use `chrome.tabs.update({pinned: true})` and other extension APIs that neither AppleScript nor CDP can reach. This is the only reliable path to tab pinning until Arc fixes their AppleScript setter.
+
+**Firefox/cross-browser support** — The MCP server (`backend/mcp_server.py`) and tool registry (`backend/tool_registry.py`) are browser-agnostic by design. A Firefox variant could use `browser.tabs` WebExtension APIs directly, enabling the same agent to work across browsers.
+
 ## Security
 
 This project is designed for personal/local use on a trusted machine. In that mode, many SaaS-style hardening controls are optional because:
