@@ -172,8 +172,8 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 - Tools: LangChain `@tool` wrappers around Phase 1 functions
 - HITL: `HumanInTheLoopMiddleware` for `arc_close_tab`
 - Memory (threads/checkpoints): runtime-managed by LangGraph server
-  - dev default: in-memory (non-persistent)
-  - durable mode: set `POSTGRES_URI` for persistence across restarts
+  - `langgraph dev`: in-memory (non-persistent)
+  - `langgraph up` + Postgres: durable thread persistence across restarts
 - Long-term local preference/personalization data: SQLite file via `PREFERENCES_DB_PATH`
 - System prompt covers Arc's data model, confirmation behaviour, response formatting
 - Runtime preference state (conversation/session): `open_mode = active_window | mini_window`
@@ -197,7 +197,7 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 }
 ```
 
-Serves at `http://localhost:2024` via `langgraph dev`.
+Serves at `http://localhost:2024` via `langgraph up` (durable) or `langgraph dev` (dev-only).
 
 ---
 
@@ -214,7 +214,7 @@ NEXT_PUBLIC_API_URL=http://localhost:2024
 NEXT_PUBLIC_ASSISTANT_ID=agent
 ```
 
-No code changes needed. Open in Safari/Firefox (not Arc).
+Run as local process or as a Docker addon service attached to `langgraph up`. Open in Safari/Firefox (not Arc).
 
 **Frontend runtime config**
 
@@ -275,7 +275,11 @@ arc-agent/
 │       ├── __init__.py
 │       ├── arc.py          ← Phase 1
 │       └── history.py      ← Phase 1
-└── frontend/               ← Phase 4 (agent-chat-ui via npx)
+├── bridge/
+│   └── bridge_server.py    ← host-local Arc tool bridge (AppleScript executor)
+├── docker/
+│   └── compose.addons.yml  ← Postgres + frontend addons for `langgraph up`
+└── frontend/               ← Phase 4 web chat UI
 ```
 
 ---
@@ -283,20 +287,22 @@ arc-agent/
 ## Dev Workflow
 
 ```bash
-# Start local Postgres in Docker (for future durable runtime modes and app metadata)
-./scripts/start_db.sh
-
 # Phase 2 test — MCP in Claude Code
 uv run python backend/mcp_server.py
 
-# Phase 3+4 — full stack (edge/local mode)
-./scripts/start_backend.sh   # Terminal 1
-./scripts/start_frontend.sh  # Terminal 2
+# Phase 3+4 durable stack (recommended)
+./scripts/start_stack_up.sh
+
+# Optional dev-only mode (non-persistent checkpoints)
+./scripts/start_bridge.sh    # Terminal 1
+./scripts/start_backend.sh   # Terminal 2
+./scripts/start_frontend.sh  # Terminal 3
 ```
 
 Note:
-- `backend/langgraph.db` is not used by default in server mode and can be ignored.
-- Conversation thread persistence in local `langgraph dev` depends on runtime behavior; preference/personalization data persists in `PREFERENCES_DB_PATH` SQLite file.
+- `backend/langgraph.db` is removed.
+- Conversation threads persist when running `langgraph up` with Postgres.
+- Preference/personalization data persists in `PREFERENCES_DB_PATH` SQLite file.
 
 ---
 
