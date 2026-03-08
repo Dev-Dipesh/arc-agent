@@ -54,19 +54,19 @@ This keeps one shared tool contract across:
 
 The canonical PlantUML sources are in `docs/script/puml/` and generated PNGs are in `docs/script/diagrams/`.
 
-Overall system diagrams are documented in the root [README.md](/Users/dipesh/Local-Projects/arc-agent/README.md).
+Overall system diagrams are documented in the root [README.md](../README.md).
 
 ### Thread lifecycle overview
 
-- Source: [aa-thread-lifecycle-overview.puml](/Users/dipesh/Local-Projects/arc-agent/docs/script/puml/aa-thread-lifecycle-overview.puml)
+- Source: [aa-thread-lifecycle-overview.puml](../docs/script/puml/aa-thread-lifecycle-overview.puml)
 - PNG: ![aa-thread-lifecycle-overview](../docs/script/diagrams/aa-thread-lifecycle-overview.png)
 
 ### Running state internal flow
 
-- Source: [aa-running-state-internal-flow.puml](/Users/dipesh/Local-Projects/arc-agent/docs/script/puml/aa-running-state-internal-flow.puml)
+- Source: [aa-running-state-internal-flow.puml](../docs/script/puml/aa-running-state-internal-flow.puml)
 - PNG: ![aa-running-state-internal-flow](../docs/script/diagrams/aa-running-state-internal-flow.png)
 
 ### Persistence responsibilities
 
-- Source: [aa-responsibilities.puml](/Users/dipesh/Local-Projects/arc-agent/docs/script/puml/aa-responsibilities.puml)
+- Source: [aa-responsibilities.puml](../docs/script/puml/aa-responsibilities.puml)
 - PNG: ![aa-responsibilities](../docs/script/diagrams/aa-responsibilities.png)
