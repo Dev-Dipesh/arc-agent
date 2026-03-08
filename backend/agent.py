@@ -163,7 +163,7 @@ TOOLS = build_langgraph_tools(exclude={"arc_open_url"}) + [
 
 callbacks = get_tracing_callbacks()
 
-model_name = os.getenv("LLM_MODEL", "gpt-5o-mini")
+model_name = os.getenv("LLM_MODEL", "gpt-5-nano")
 model = ChatOpenAI(model=model_name, temperature=0, callbacks=callbacks)
 
 class ArcAgentState(AgentState):
