@@ -73,7 +73,9 @@ All functions return plain dicts. Errors returned as `{"error": "..."}`.
 
 | Function                             | AppleScript             | Notes                           |
 | ------------------------------------ | ----------------------- | ------------------------------- |
-| `open_url(url, space_id?)`           | `make new tab in space` | targets specific space if given |
+| `open_url_active_window(url)`        | `make new tab` on `window 1` | opens directly in active space |
+| `open_url_mini_window(url, space_id)`| `make new tab in target space` | may show Arc mini-window handoff |
+| `open_url(url, space_id?)`           | compatibility alias     | no `space_id` -> active, with `space_id` -> mini-window path |
 | `close_tab(tab_id)`                  | `close tab id X`        | HITL confirm before calling     |
 | `switch_to_tab(tab_id)`              | `select` on tab         | —                               |
 | `reload_tab(tab_id)`                 | `reload` on tab         | —                               |
@@ -105,6 +107,12 @@ Copy before reading to avoid WAL lock.
 - Tab groups/folders within a space
 - Creating or deleting spaces
 
+**Open mode guidance**
+
+- `active_window` mode is more stable and opens tabs directly in the currently focused Arc window/space.
+- `mini_window` mode preserves multi-window focus context and uses Arc's mini-window handoff UX for target space flows.
+- Because Arc AppleScript behavior can vary by window/session state, keep both paths available and let the user choose.
+
 ---
 
 ### Phase 2 — MCP Server
@@ -129,6 +137,12 @@ def list_spaces_tool() -> list[dict]:
 
 - `stdio` — for Claude Code and local MCP clients
 - `sse` — for hosting on mcp.so or remote agents
+
+**Open URL tools (explicit modes)**
+
+- `arc_open_url_active_window(url)` — open directly in active window (default/recommended)
+- `arc_open_url_mini_window(url, space_id)` — use Arc target-space path (mini-window capable)
+- `arc_open_url(url, space_id?)` — backward-compatible alias
 
 **Claude Code integration** (for testing Phase 2 before building the agent):
 
@@ -159,6 +173,12 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 - HITL: `interrupt()` before `close_tab` or any bulk destructive action. Use langchain node-style middleware instead of custome building it
 - Memory: SQLite checkpointer for persistent conversation across sessions
 - System prompt covers Arc's data model, confirmation behaviour, response formatting
+- Runtime preference state (conversation/session): `open_mode = active_window | mini_window`
+- Routing policy:
+  - Default to `active_window` for reliability
+  - If user asks for mini-window behavior, route to `open_url_mini_window`
+  - Allow explicit one-shot override per request (e.g., "open this one directly")
+  - Persist user preference after explicit confirmation ("Use this as default")
 
 `backend/langgraph.json`
 
