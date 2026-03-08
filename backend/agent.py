@@ -13,41 +13,29 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.prebuilt import create_react_agent
 from langgraph.types import interrupt
 
-from tools.arc import (
-    close_tab,
-    find_duplicates,
-    find_tabs,
-    focus_space,
-    go_back,
-    go_forward,
-    list_spaces,
-    list_tabs,
-    navigate_tab,
-    open_url,
-    open_url_active_window,
-    open_url_mini_window,
-    read_page_content,
-    reload_tab,
-    stop_tab,
-    switch_to_tab,
+from tool_registry import (
+    arc_close_tab,
+    arc_open_url,
+    arc_open_url_active_window,
+    arc_open_url_mini_window,
+    build_langgraph_tools,
 )
-from tools.history import find_closed_tab, search_history
 
 CHECKPOINT_DB_PATH = os.getenv("CHECKPOINT_DB_PATH", "langgraph.db")
 PREFERENCES_DB_PATH = os.getenv("PREFERENCES_DB_PATH", ".arc_agent_prefs.sqlite")
-DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "active_window")
+DEFAULT_OPEN_MODE = os.getenv("DEFAULT_OPEN_MODE", "mini_window")
 
 SYSTEM_PROMPT = """
 You are Arc Agent, an assistant that controls Arc browser on macOS.
 
 Rules:
 - Tabs belong to spaces; use space context when needed.
-- Call list_spaces before space-specific operations if space identity is ambiguous.
+- Call arc_list_spaces before space-specific operations if space identity is ambiguous.
 - Use open mode preference for generic "open URL" requests:
   - active_window: open directly in currently active Arc window.
   - mini_window: use Arc target-space path (mini-window handoff behavior).
 - Ask for explicit confirmation before destructive actions.
-- For close_tab tool, a runtime interrupt confirmation is required.
+- For arc_close_tab tool, a runtime interrupt confirmation is required.
 - Be concise and include tab IDs when proposing follow-up tab actions.
 """.strip()
 
@@ -101,37 +89,7 @@ def _set_preference(thread_id: str, key: str, value: str) -> None:
         conn.commit()
 
 
-@tool
-def list_spaces_tool() -> list[dict]:
-    """List all Arc spaces with IDs and titles."""
-    return list_spaces()
-
-
-@tool
-def focus_space_tool(space_id: str) -> dict:
-    """Focus/switch to an Arc space by space ID."""
-    return focus_space(space_id)
-
-
-@tool
-def list_tabs_tool(space_id: str = "") -> list[dict]:
-    """List Arc tabs. Provide optional space_id to filter to one space."""
-    return list_tabs(space_id or None)
-
-
-@tool
-def find_tabs_tool(query: str) -> list[dict]:
-    """Find open tabs by title or URL substring (case-insensitive)."""
-    return find_tabs(query)
-
-
-@tool
-def find_duplicates_tool() -> list[list[dict]]:
-    """Find duplicate open tabs by URL across spaces."""
-    return find_duplicates()
-
-
-@tool
+@tool("set_open_mode_preference")
 def set_open_mode_preference(
     mode: str, config: RunnableConfig | None = None
 ) -> dict[str, Any]:
@@ -143,7 +101,7 @@ def set_open_mode_preference(
     return {"ok": True, "thread_id": thread_id, "open_mode": mode}
 
 
-@tool
+@tool("get_open_mode_preference")
 def get_open_mode_preference(config: RunnableConfig | None = None) -> dict[str, Any]:
     """Get current open mode preference for this conversation thread."""
     thread_id = _thread_id(config)
@@ -151,8 +109,8 @@ def get_open_mode_preference(config: RunnableConfig | None = None) -> dict[str, 
     return {"ok": True, "thread_id": thread_id, "open_mode": mode}
 
 
-@tool
-def open_url_tool(
+@tool("arc_open_url")
+def open_url_with_preference(
     url: str,
     space_id: str = "",
     mode: str = "",
@@ -171,34 +129,22 @@ def open_url_tool(
         selected_mode = _get_preference(thread_id, "open_mode") or DEFAULT_OPEN_MODE
 
     if selected_mode == "active_window":
-        return open_url_active_window(url)
+        return arc_open_url_active_window(url)
     if selected_mode == "mini_window":
         if not space_id:
             return {"error": "space_id is required for mini_window mode."}
-        return open_url_mini_window(url, space_id)
+        return arc_open_url_mini_window(url, space_id)
     return {"error": "Invalid mode. Use 'active_window' or 'mini_window'."}
 
 
-@tool
-def open_url_active_window_tool(url: str) -> dict:
-    """Open URL directly in the active Arc window/space."""
-    return open_url_active_window(url)
-
-
-@tool
-def open_url_mini_window_tool(url: str, space_id: str) -> dict:
-    """Open URL using Arc target-space path (mini-window handoff behavior)."""
-    return open_url_mini_window(url, space_id)
-
-
-@tool
+@tool("arc_open_url_legacy")
 def open_url_legacy_tool(url: str, space_id: str = "") -> dict:
     """Legacy open_url behavior for compatibility."""
-    return open_url(url, space_id or None)
+    return arc_open_url(url, space_id or "")
 
 
-@tool
-def close_tab_tool(tab_id: str) -> dict:
+@tool("arc_close_tab")
+def close_tab_with_interrupt(tab_id: str) -> dict:
     """Close a tab by ID (requires interrupt confirmation)."""
     response = interrupt(
         {
@@ -220,85 +166,15 @@ def close_tab_tool(tab_id: str) -> dict:
     if not approved:
         return {"ok": False, "cancelled": True, "tab_id": tab_id}
 
-    return close_tab(tab_id)
+    return arc_close_tab(tab_id)
 
 
-@tool
-def switch_to_tab_tool(tab_id: str) -> dict:
-    """Switch/focus a tab by ID."""
-    return switch_to_tab(tab_id)
-
-
-@tool
-def reload_tab_tool(tab_id: str) -> dict:
-    """Reload a tab by ID."""
-    return reload_tab(tab_id)
-
-
-@tool
-def stop_tab_tool(tab_id: str) -> dict:
-    """Stop a tab load by ID."""
-    return stop_tab(tab_id)
-
-
-@tool
-def navigate_tab_tool(tab_id: str, url: str) -> dict:
-    """Navigate an existing tab to URL."""
-    return navigate_tab(tab_id, url)
-
-
-@tool
-def go_back_tool(tab_id: str) -> dict:
-    """Go back in tab history for tab ID."""
-    return go_back(tab_id)
-
-
-@tool
-def go_forward_tool(tab_id: str) -> dict:
-    """Go forward in tab history for tab ID."""
-    return go_forward(tab_id)
-
-
-@tool
-def read_page_content_tool(tab_id: str) -> dict:
-    """Read text content from a tab (title + extracted content)."""
-    return read_page_content(tab_id)
-
-
-@tool
-def search_history_tool(query: str, limit: int = 20) -> list[dict]:
-    """Search Arc browsing history by query."""
-    return search_history(query, limit)
-
-
-@tool
-def find_closed_tab_tool(query: str) -> list[dict]:
-    """Find possibly-closed tabs from browsing history."""
-    return find_closed_tab(query)
-
-
-TOOLS = [
-    list_spaces_tool,
-    focus_space_tool,
-    list_tabs_tool,
-    find_tabs_tool,
-    find_duplicates_tool,
+TOOLS = build_langgraph_tools(exclude={"arc_open_url", "arc_close_tab"}) + [
     set_open_mode_preference,
     get_open_mode_preference,
-    open_url_tool,
-    open_url_active_window_tool,
-    open_url_mini_window_tool,
+    open_url_with_preference,
     open_url_legacy_tool,
-    close_tab_tool,
-    switch_to_tab_tool,
-    reload_tab_tool,
-    stop_tab_tool,
-    navigate_tab_tool,
-    go_back_tool,
-    go_forward_tool,
-    read_page_content_tool,
-    search_history_tool,
-    find_closed_tab_tool,
+    close_tab_with_interrupt,
 ]
 
 
