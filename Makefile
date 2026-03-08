@@ -194,7 +194,7 @@ frontend-restart:
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build frontend
 
 backend-restart:
-	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build langgraph-api
+	docker restart arc-agent-langgraph-api-1
 
 lint:
 	cd backend && uv run ruff check .
