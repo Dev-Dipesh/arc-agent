@@ -1,0 +1,10 @@
+{
+  "name": "arc-agent-diagram-scripts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Kroki-based diagram generation scripts for Arc Agent docs",
+  "scripts": {
+    "diagrams:generate": "node generate-diagram-pngs.cjs",
+    "diagrams:generate:one": "node generate-diagram-pngs.cjs"
+  }
+}

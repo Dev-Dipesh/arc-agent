@@ -1,0 +1,67 @@
+@startuml
+  title Arc Agent - Deployment & System Boundaries
+
+  skinparam shadowing false
+  skinparam packageStyle rectangle
+  skinparam componentStyle rectangle
+
+  actor User
+
+  cloud "Browser (User-facing UI)\nSafari/Firefox -> http://localhost:3000" as Browser
+
+  node "Host macOS Boundary" as Host {
+    package "Local Host Processes" as HostProc {
+      component "Arc Browser\n(AppleScript target)" as Arc
+      component "Arc MCP Server\nbackend/mcp_server.py\nSSE :8765" as McpHost
+    }
+  }
+
+  node "Docker Boundary (langgraph up)" as Docker {
+    package "LangGraph API Container" as API {
+      component "Arc Agent Graph\nbackend/agent.py" as Agent
+      component "Tool Registry\nbackend/tool_registry.py" as Registry
+      component "Remote MCP Client\nbackend/mcp_remote_client.py" as McpClient
+      component "Tracing Adapter\nbackend/tracing.py" as Tracing
+      component "Middleware Stack\nHITL + Summary + Retry + Limits" as MW
+    }
+
+    database "Postgres\n(checkpoints / threads)" as PG
+    node "Frontend Container" as FE {
+      component "Next.js Chat UI\nfrontend/apps/web" as WebUI
+    }
+  }
+
+  database "SQLite Prefs File\nbackend/.arc_agent_prefs.sqlite\n(per-thread preferences)" as Prefs
+  database "Arc History SQLite\n~/Library/.../Arc/.../History" as Hist
+
+  User --> Browser
+  Browser --> WebUI : open chat + send message
+  WebUI --> Agent : LangGraph API (runs/threads)
+
+  Agent --> MW : apply middleware
+  Agent --> Registry : tool selection/execution
+  Registry --> McpClient : if ARC_MCP_SSE_URL set
+  McpClient --> McpHost : MCP over SSE (/sse + /messages/)
+  McpHost --> Arc : osascript (tab/space actions)
+  McpHost --> Hist : read history tools
+  McpHost --> McpClient : tool result
+  McpClient --> Registry
+  Registry --> Agent : structured result
+
+  Agent --> Prefs : read/write open_mode preference
+  Agent --> PG : checkpoint state, thread history
+  Agent --> Tracing : callbacks\n(langsmith|langfuse|jsonl|none)
+
+  WebUI <-- Agent : streamed responses + interrupts
+  Browser <-- WebUI : render chat / HITL controls
+
+  note top of Docker
+  All agent orchestration, threading, and API serving
+  live inside Docker via langgraph up.
+  end note
+
+  note top of Host
+  Arc automation is outside Docker by design,
+  executed on host via MCP server to access AppleScript.
+  end note
+@enduml

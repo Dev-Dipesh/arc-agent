@@ -84,24 +84,32 @@ Minimum keys to run:
 - `POSTGRES_URI_DOCKER` (or `POSTGRES_URI`)
 - frontend vars (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ASSISTANT_ID`) are prefilled with defaults
 
-## Diagrams
+## Security
+
+This project is currently designed for personal/local use on a trusted machine.
+In that mode, many SaaS-style hardening controls are optional because:
+
+- the Arc automation surface is your own host
+- services are expected to be on localhost/private Docker network
+- there is no multi-tenant user model
+
+If you host this beyond personal local use (shared network, remote access, cloud VM), add security controls before exposing it:
+
+- app-level authentication and authorization for MCP/API access
+- strict network allowlists/ACLs (least privilege)
+- private connectivity (for example, Tailscale/private VPN) instead of public exposure
+- TLS termination and secret management
+- request rate limits, audit logging, and rotation of credentials
+- non-root containers and hardened runtime images (for example, Wolfi)
+
+## System Diagrams (Overall Scope)
 
 ### 1) Deployment and system boundaries
 
-![Arc Agent deployment and boundaries](docs/diagrams/arc-agent-1.png)
+![Arc Agent deployment and boundaries](docs/script/diagrams/arc-agent-1.png)
 
 ### 2) End-to-end interaction sequence
 
-![Arc Agent end-to-end sequence](docs/diagrams/arc-agent-2.png)
+![Arc Agent end-to-end sequence](docs/script/diagrams/arc-agent-2.png)
 
-### 3) Thread lifecycle overview
-
-![Arc Agent thread lifecycle overview](docs/diagrams/aa-thread-lifecycle-overview.png)
-
-### 4) Running state internal flow
-
-![Arc Agent running state internal flow](docs/diagrams/aa-running-state-internal-flow.png)
-
-### 5) Persistence responsibilities
-
-![Arc Agent persistence responsibilities](docs/diagrams/aa-responsibilities.png)
+Backend-specific diagrams (thread lifecycle, internal running flow, persistence responsibilities) are documented in [backend/README.md](/Users/dipesh/Local-Projects/arc-agent/backend/README.md).

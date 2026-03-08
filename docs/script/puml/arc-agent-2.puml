@@ -1,0 +1,82 @@
+@startuml
+  title Arc Agent - End-to-End Interaction Sequence (with boundaries)
+
+  skinparam shadowing false
+  autonumber
+
+  actor User
+  box "Frontend Boundary (Docker)" #LightBlue
+  participant "Chat UI\n(frontend/apps/web)" as UI
+  end box
+
+  box "Backend Boundary (Docker: LangGraph API)" #LightGreen
+  participant "LangGraph API" as API
+  participant "Arc Agent\n(agent.py)" as Agent
+  participant "Middleware\n(HITL/Summary/Retry/Limits)" as MW
+  participant "Tool Registry\n(tool_registry.py)" as Reg
+  participant "Remote MCP Client\n(mcp_remote_client.py)" as MC
+  database "Postgres\nThreads/Checkpoints" as PG
+  database "Prefs SQLite\nopen_mode per thread" as Prefs
+  participant "Tracing Adapter\n(tracing.py)" as Trace
+  end box
+
+  box "Host macOS Boundary" #LightYellow
+  participant "Arc MCP Server\n(mcp_server.py)" as MCP
+  participant "Arc Browser" as Arc
+  database "Arc History DB" as History
+  end box
+
+  User -> UI : Send natural-language request
+  UI -> API : /threads/{id}/runs (message)
+  API -> Agent : invoke graph with thread_id
+  Agent -> Trace : start span/callbacks
+  Agent -> MW : pre-tool policies
+
+  alt Long conversation threshold exceeded
+    MW -> Agent : summarize context
+  end
+
+  Agent -> Prefs : get open_mode for thread
+  Prefs --> Agent : active_window | mini_window
+
+  Agent -> Reg : call selected tool
+
+  alt Tool is browser action
+    Reg -> MC : call remote MCP tool
+    MC -> MCP : call_tool(name,args) over SSE
+    alt open_url in active_window mode
+      MCP -> Arc : osascript open_url_active_window(url)
+    else open_url in mini_window mode
+      MCP -> Arc : osascript open_url_mini_window(url, space_id)
+    else tab/space/navigation op
+      MCP -> Arc : corresponding osascript command
+    end
+    Arc --> MCP : result / error
+    MCP --> MC : structured result
+    MC --> Reg : structured tool output
+  else Tool is history query
+    Reg -> MC : call remote MCP tool
+    MC -> MCP : call_tool(name,args)
+    MCP -> History : query sqlite copy
+    History --> MCP : matching rows
+    MCP --> MC : result set
+    MC --> Reg : tool output
+  end
+
+  Reg --> Agent : tool result
+  Agent -> MW : post-tool policies
+
+  alt Destructive tool (arc_close_tab)
+    MW -> UI : interrupt request (approval needed)
+    UI -> User : show approval action
+    User -> UI : approve/deny
+    UI -> API : resume with decision
+    API -> Agent : continue run
+  end
+
+  Agent -> PG : save checkpoint/state
+  Agent -> Trace : finalize trace
+  Agent --> API : final response
+  API --> UI : stream tokens/events
+  UI --> User : rendered answer + next actions
+@enduml

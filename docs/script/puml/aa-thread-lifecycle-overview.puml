@@ -1,0 +1,31 @@
+@startuml
+title Arc Agent - Thread Lifecycle Overview
+
+skinparam shadowing false
+
+[*] --> NewThread : create thread_id
+NewThread --> Running : first message
+
+state Running {
+  [*] --> Planning
+  Planning --> ToolExecution : tool needed
+  ToolExecution --> WaitingApproval : destructive tool (arc_close_tab)
+  WaitingApproval --> ToolExecution : user approves
+  WaitingApproval --> Planning : user denies/edits
+  ToolExecution --> Planning : tool result returned
+  Planning --> Finalizing : answer ready
+}
+
+Running --> Checkpointing : run completes
+Checkpointing --> Idle
+
+Idle --> Running : next user message
+Idle --> Archived : user archives thread / cleanup policy
+
+Archived --> Running : reopen archived thread
+Archived --> [*] : permanent deletion
+
+Running --> Failed : runtime error
+Failed --> Idle : retry later
+Failed --> [*] : delete thread
+@enduml

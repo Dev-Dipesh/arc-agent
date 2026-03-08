@@ -1,0 +1,28 @@
+@startuml
+title Arc Agent - Persistence Responsibilities
+
+skinparam shadowing false
+
+|LangGraph Runtime|
+start
+:Execute run;
+
+|Tracing|
+:Emit callbacks/spans;
+
+|MCP Tool Layer|
+:Invoke host MCP tools as needed;
+
+|Preferences|
+:Read/write open_mode per thread (SQLite);
+
+|Checkpoint|
+:Create checkpoint events;
+
+|Postgres|
+:Persist thread state/messages;
+
+|LangGraph Runtime|
+:Idle;
+stop
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+title Arc Agent - Running State Internal Flow
+
+skinparam shadowing false
+
+start
+:Receive user message;
+:Load thread context + preferences;
+:Invoke model with system prompt;
+
+if (Need tool call?) then (yes)
+  :Select tool via model;
+  if (Tool is destructive?) then (yes)
+    :Emit HITL interrupt;
+    :Wait for user decision;
+    if (Approved?) then (yes)
+      :Execute tool;
+    else (no)
+      :Return to model with denial context;
+    endif
+  else (no)
+    :Execute tool;
+  endif
+
+  if (Tool error?) then (yes)
+    :Apply retry policy;
+    if (Retries exhausted?) then (yes)
+      :Return error context to model;
+    else (no)
+      :Retry tool execution;
+    endif
+  else (no)
+    :Attach tool result to messages;
+  endif
+else (no)
+  :Generate answer directly;
+endif
+
+if (Summarization trigger hit?) then (yes)
+  :Summarize old messages;
+  :Keep recent context window;
+endif
+
+:Persist checkpoint state;
+:Emit tracing callbacks;
+:Stream response to UI;
+stop
+@enduml
