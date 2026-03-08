@@ -148,17 +148,13 @@ stack-up:
 		echo "Postgres URI still points to localhost. Set POSTGRES_URI_DOCKER to use host 'postgres'."; \
 		exit 1; \
 	fi; \
-	echo "Starting postgres + frontend (detached)..."; \
-	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend; \
 	cleanup() { \
 		echo; \
-		echo "Stopping langgraph-api..."; \
-		COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml stop langgraph-api >/dev/null 2>&1 || true; \
 		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
 			kill $$BRIDGE_PID 2>/dev/null || true; \
 			rm -f "$(BRIDGE_PID_FILE)"; \
 		fi; \
-		echo "postgres + frontend still running. Use 'make compose-down' to stop everything."; \
+		echo "Stack stopped. Containers still running — use 'make compose-down' to remove them."; \
 	}; \
 	trap cleanup EXIT INT TERM; \
 	cd backend && ARC_MCP_SSE_URL="$${ARC_MCP_SSE_URL_DOCKER:-http://host.docker.internal:8765/sse}" \
@@ -184,11 +180,10 @@ stack-dev:
 	fi; \
 	cleanup() { \
 		echo; \
-		echo "Stopping dev backend..."; \
 		if [[ "$$BRIDGE_STARTED" = "1" && -n "$$BRIDGE_PID" ]]; then \
 			kill $$BRIDGE_PID 2>/dev/null || true; \
 		fi; \
-		echo "postgres + frontend still running. Use 'make compose-down' to stop everything."; \
+		echo "Dev backend stopped. Containers still running — use 'make compose-down' to remove them."; \
 	}; \
 	trap cleanup EXIT INT TERM; \
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend; \
