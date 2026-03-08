@@ -59,14 +59,14 @@ export function MiddlewareHitlReviewView({
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-        <h3 className="font-medium text-gray-900">Approval Required</h3>
+    <div className="border border-border rounded-lg overflow-hidden bg-background">
+      <div className="bg-muted px-4 py-2 border-b border-border">
+        <h3 className="font-medium text-foreground">Approval Required</h3>
       </div>
       <div className="p-3 space-y-3">
         {interrupt.action_requests.map((req, idx) => (
           <div key={`${req.name}-${idx}`} className="rounded border p-3">
-            <div className="text-sm font-medium">{req.name}</div>
+            <div className="text-sm font-medium text-foreground">{req.name}</div>
             {req.description ? (
               <div className="text-xs text-muted-foreground mt-1">
                 {req.description}

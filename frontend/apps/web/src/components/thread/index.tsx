@@ -35,6 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { ThemeToggle } from "../ui/theme-toggle";
 
 function StickyToBottomContent(props: {
   content: ReactNode;
@@ -208,7 +209,7 @@ export function Thread() {
     <div className="flex w-full h-screen overflow-hidden">
       <div className="relative lg:flex hidden">
         <motion.div
-          className="absolute h-full border-r bg-white overflow-hidden z-20"
+          className="absolute h-full border-r bg-background overflow-hidden z-20"
           style={{ width: 300 }}
           animate={
             isLargeScreen
@@ -264,7 +265,8 @@ export function Thread() {
                 </Button>
               )}
             </div>
-            <div className="absolute top-2 right-4 flex items-center">
+            <div className="absolute top-2 right-4 flex items-center gap-3">
+              <ThemeToggle />
               <OpenGitHubRepo />
             </div>
           </div>
@@ -307,6 +309,7 @@ export function Thread() {
             </div>
 
             <div className="flex items-center gap-4">
+              <ThemeToggle />
               <div className="flex items-center">
                 <OpenGitHubRepo />
               </div>
@@ -369,7 +372,7 @@ export function Thread() {
               </>
             }
             footer={
-              <div className="sticky flex flex-col items-center gap-8 bottom-0 bg-white">
+              <div className="sticky flex flex-col items-center gap-8 bottom-0 bg-background">
                 {!chatStarted && (
                   <div className="flex gap-3 items-center">
                     <LangGraphLogoSVG className="flex-shrink-0 h-8" />
