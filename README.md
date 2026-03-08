@@ -258,8 +258,8 @@ The current control layer is AppleScript-only. Each method covers different grou
 | List/switch spaces | ✓ | — | — |
 | List/open/close tabs | ✓ | ✓ | ✓ |
 | Pin/unpin tabs | ✗ (Arc bug) | ✗ | ✓ |
-| Read page DOM/text | — | ✓ | ✓ |
-| Execute JavaScript | — | ✓ | ✓ |
+| Read page DOM/text | ✓ | ✓ | ✓ |
+| Execute JavaScript | ✓ | ✓ | ✓ |
 | Screenshot a tab | — | ✓ | — |
 | Intercept network | — | ✓ | ✓ |
 | History/bookmarks | ✓ (partial) | — | ✓ |
