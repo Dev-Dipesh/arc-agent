@@ -13,6 +13,8 @@ from tools.arc import (
     list_tabs,
     navigate_tab,
     open_url,
+    open_url_active_window,
+    open_url_mini_window,
     read_page_content,
     reload_tab,
     set_tab_location,
@@ -83,10 +85,26 @@ def arc_find_duplicates() -> list[list[dict]]:
 @mcp.tool()
 def arc_open_url(url: str, space_id: str = "") -> dict:
     """
-    Open a URL in Arc. Pass a space_id to open in a specific space,
-    or leave empty to open in the currently active space.
+    Open a URL in Arc (legacy behavior).
+    - Without space_id: opens directly in active window.
+    - With space_id: uses target-space path that may appear as a mini-window first.
     """
     return open_url(url, space_id or None)
+
+
+@mcp.tool()
+def arc_open_url_active_window(url: str) -> dict:
+    """Open a URL directly in the active Arc window (no mini-window handoff)."""
+    return open_url_active_window(url)
+
+
+@mcp.tool()
+def arc_open_url_mini_window(url: str, space_id: str) -> dict:
+    """
+    Open a URL using Arc's target-space path, which may first appear in a mini window.
+    Use when the user explicitly prefers mini-window behavior.
+    """
+    return open_url_mini_window(url, space_id)
 
 
 @mcp.tool()

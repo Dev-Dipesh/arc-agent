@@ -74,12 +74,24 @@ def focus_space(space_id: str) -> dict:
     safe_space_id = _as_apple_string(space_id)
     script = f"""
 tell application "Arc"
-    set targetSpace to first space of window 1 whose id is "{safe_space_id}"
+    set targetSpace to missing value
+    repeat with s in spaces of window 1
+        if (id of s as text) is "{safe_space_id}" then
+            set targetSpace to s
+            exit repeat
+        end if
+    end repeat
+    if targetSpace is missing value then
+        return "not_found"
+    end if
     focus targetSpace
+    return "focused"
 end tell
 """
     try:
-        _run(script)
+        result = _run(script)
+        if result == "not_found":
+            return {"error": f"Space {space_id} not found"}
         return {"ok": True, "space_id": space_id}
     except RuntimeError as e:
         return {"error": str(e)}
@@ -159,23 +171,12 @@ def find_duplicates() -> list[list[dict]]:
 # Tabs — actions
 # ---------------------------------------------------------------------------
 
-def open_url(url: str, space_id: Optional[str] = None) -> dict:
-    """
-    Open a URL in Arc. If space_id is given, opens in that space.
-    Otherwise opens in the currently active space.
-    """
+def open_url_active_window(url: str) -> dict:
+    """Open a URL directly in Arc's active window (no mini-window handoff)."""
     safe_url = _as_apple_string(url)
-    if space_id:
-        safe_space_id = _as_apple_string(space_id)
-        script = f"""
+    script = f"""
 tell application "Arc"
-    set targetSpace to first space of window 1 whose id is "{safe_space_id}"
-    make new tab in targetSpace with properties {{URL:"{safe_url}"}}
-end tell
-"""
-    else:
-        script = f"""
-tell application "Arc"
+    activate
     tell window 1
         make new tab with properties {{URL:"{safe_url}"}}
     end tell
@@ -183,9 +184,51 @@ end tell
 """
     try:
         _run(script)
-        return {"ok": True, "url": url, "space_id": space_id}
+        return {"ok": True, "url": url, "mode": "active_window"}
     except RuntimeError as e:
         return {"error": str(e)}
+
+
+def open_url_mini_window(url: str, space_id: str) -> dict:
+    """
+    Open a URL with Arc's target-space path, which may appear as a mini window first.
+    This keeps multi-window focus untouched and relies on Arc's handoff UX.
+    """
+    safe_url = _as_apple_string(url)
+    safe_space_id = _as_apple_string(space_id)
+    script = f"""
+tell application "Arc"
+    set targetSpace to missing value
+    repeat with s in spaces of window 1
+        if (id of s as text) is "{safe_space_id}" then
+            set targetSpace to s
+            exit repeat
+        end if
+    end repeat
+    if targetSpace is missing value then
+        return "space_not_found"
+    end if
+    make new tab in targetSpace with properties {{URL:"{safe_url}"}}
+end tell
+"""
+    try:
+        result = _run(script)
+        if result == "space_not_found":
+            return {"error": f"Space {space_id} not found"}
+        return {"ok": True, "url": url, "space_id": space_id, "mode": "mini_window"}
+    except RuntimeError as e:
+        return {"error": str(e)}
+
+
+def open_url(url: str, space_id: Optional[str] = None) -> dict:
+    """
+    Backward-compatible alias:
+    - no space_id: open in active window
+    - with space_id: open via target-space/mini-window path
+    """
+    if space_id:
+        return open_url_mini_window(url, space_id)
+    return open_url_active_window(url)
 
 
 def close_tab(tab_id: str) -> dict:
