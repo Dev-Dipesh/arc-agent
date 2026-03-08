@@ -168,7 +168,7 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
 `backend/agent.py` — imports tool functions directly (not via MCP).
 
 - ReAct agent via `create_react_agent`
-- LLM: `gpt-5o-mini`
+- LLM: configurable via `LLM_MODEL` env (default `gpt-5o-mini`)
 - Tools: LangChain `@tool` wrappers around Phase 1 functions
 - HITL: `interrupt()` before `close_tab` or any bulk destructive action. Use langchain node-style middleware instead of custome building it
 - Memory: SQLite checkpointer for persistent conversation across sessions
@@ -179,6 +179,7 @@ Once connected, Claude Code can call Arc tools directly to verify everything wor
   - If user asks for mini-window behavior, route to `open_url_mini_window`
   - Allow explicit one-shot override per request (e.g., "open this one directly")
   - Persist user preference after explicit confirmation ("Use this as default")
+- Tracing backend selected via `TRACING_BACKEND` env (`langsmith` | `langfuse` | `jsonl` | `none`) through a thin tracer adapter
 
 `backend/langgraph.json`
 
