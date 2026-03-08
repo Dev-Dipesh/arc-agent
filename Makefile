@@ -82,7 +82,7 @@ compose-up:
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml up -d --build postgres frontend
 
 compose-down:
-	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down
+	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml down --remove-orphans
 
 compose-logs:
 	COMPOSE_PROJECT_NAME=arc-agent docker compose -f docker/compose.yml logs -f --tail=200 postgres frontend
