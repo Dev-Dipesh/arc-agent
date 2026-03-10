@@ -36,6 +36,9 @@ out/
 .AppleDouble
 .LSOverride
 
+# Private planning docs
+docs/multi-agent/
+
 # Editors
 .vscode/
 .idea/
