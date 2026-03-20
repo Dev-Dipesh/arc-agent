@@ -41,14 +41,15 @@ def _as_apple_string(value: str) -> str:
 # ---------------------------------------------------------------------------
 
 def list_spaces() -> list[dict]:
-    """List all Arc spaces with their IDs and titles."""
+    """List all Arc spaces with their IDs, titles, and tab counts."""
     script = """
 tell application "Arc"
     set fieldSep to ASCII character 31
     set recordSep to ASCII character 30
     set out to ""
     repeat with s in spaces of window 1
-        set out to out & (id of s as text) & fieldSep & (title of s as text) & recordSep
+        set tabCount to count of tabs of s
+        set out to out & (id of s as text) & fieldSep & (title of s as text) & fieldSep & (tabCount as text) & recordSep
     end repeat
     return out
 end tell
@@ -62,8 +63,12 @@ end tell
             if not item:
                 continue
             parts = item.split(_FIELD_SEP)
-            if len(parts) == 2:
-                spaces.append({"id": parts[0].strip(), "title": parts[1].strip()})
+            if len(parts) == 3:
+                spaces.append({
+                    "id": parts[0].strip(),
+                    "title": parts[1].strip(),
+                    "tab_count": int(parts[2].strip()),
+                })
         return spaces
     except RuntimeError as e:
         return [{"error": str(e)}]
